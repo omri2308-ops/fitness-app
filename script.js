@@ -1,5 +1,12 @@
-// ===== 1. הגדרות =====
-const USER = "omri";
+// ===== 1. הגדרות ומשתמשים =====
+// כדי לשנות שם - מחליפים את הטקסט בתוך המירכאות
+const USERS = {
+  omri: "עומרי",
+  wife: "איליי"};
+
+// מי המשתמש הפעיל (האפליקציה זוכרת מי השתמש אחרון)
+let USER = localStorage.getItem("currentUser") || "omri";
+let currentTab = "workout";
 
 // ===== 2. רשימת התרגילים =====
 // min = מינימום חזרות, max = מקסימום חזרות, step = בכמה ק״ג להעלות
@@ -117,6 +124,20 @@ function renderWorkout(letter) {
 }
 
 // ===== 7. שמירת תרגיל =====
+// שמירת רישום אחד (משמש גם את התוכנית של עומרי וגם את האימון החופשי)
+function addLog(name, weight, reps, difficulty) {
+  const data = loadData();
+  if (!data.logs[name]) data.logs[name] = [];
+  data.logs[name].push({
+    date: new Date().toLocaleDateString("he-IL"),
+    time: Date.now(),
+    weight: weight,
+    reps: reps,
+    difficulty: difficulty
+  });
+  saveData(data);
+}
+
 function saveExercise(letter, i) {
   const name = program[letter][i];
   const weight = Number(document.getElementById("w" + i).value) || 0;
@@ -129,27 +150,18 @@ function saveExercise(letter, i) {
     return;
   }
 
-  const data = loadData();
-  if (!data.logs[name]) data.logs[name] = [];
-  data.logs[name].push({
-    date: new Date().toLocaleDateString("he-IL"),
-    time: Date.now(),
-    weight: weight,
-    reps: reps,
-    difficulty: difficulty
-  });
-  saveData(data);
-
+  addLog(name, weight, reps, difficulty);
   msg.textContent = "✅ נשמר!";
 }
 
 // ===== 8. מעבר בין הלשוניות =====
 function showTab(id) {
+  currentTab = id;
   document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
   document.getElementById(id).classList.add("active");
   if (id === "history") renderHistory();
   if (id === "body") renderBody();
-    if (id === "nutrition") showNutrition();
+  if (id === "nutrition") showNutrition();
   document.querySelectorAll(".menu button").forEach(b => {
     b.classList.toggle("active", b.dataset.tab === id);
   });
@@ -167,9 +179,6 @@ document.querySelectorAll(".pick").forEach(b => {
     renderWorkout(b.dataset.workout);
   });
 });
-
-// כשהאפליקציה נפתחת - מציגים את לשונית האימון
-showTab("workout");
 
 // ===== 10. היסטוריה והתקדמות =====
 function score(log) {
@@ -373,6 +382,7 @@ function deleteBody(date) {
   saveData(data);
   renderBody();
 }
+
 // ===== 12. תזונה =====
 const nutritionFields = ["sex", "age", "height", "nWeight", "activity", "goal"];
 
@@ -384,6 +394,11 @@ function showNutrition() {
     nutritionFields.forEach(f => {
       if (p[f]) document.getElementById(f).value = p[f];
     });
+  }
+  else {
+    // משתמש חדש - מנקים את השדות
+    ["age", "height", "nWeight"].forEach(f => document.getElementById(f).value = "");
+    document.getElementById("calResult").innerHTML = "";
   }
   const body = data.body || [];
   if (body.length > 0) {
@@ -507,3 +522,102 @@ function rateCheck(goal) {
   else advice = "✅ הקצב מצוין, תמשיך ככה";
   return `<div class="result-box"><p>הקצב שלך בפועל: <b>${perWeekPct.toFixed(2)}% בשבוע</b></p><p>${advice}</p></div>`;
 }
+
+// ===== 13. אימון חופשי (למשתמש בלי תוכנית קבועה) =====
+function renderFreeWorkout() {
+  const data = loadData();
+
+  // השלמה אוטומטית של שמות תרגילים שכבר נשמרו
+  const datalist = document.getElementById("freeNames");
+  datalist.innerHTML = "";
+  Object.keys(data.logs).forEach(name => {
+    datalist.innerHTML += `<option value="${name}">`;
+  });
+
+  // מה נשמר היום
+  const today = new Date().toLocaleDateString("he-IL");
+  const list = document.getElementById("freeToday");
+  list.innerHTML = "";
+  Object.keys(data.logs).forEach(name => {
+    data.logs[name].filter(l => l.date === today).forEach(l => {
+      list.innerHTML += `<li><b>${name}</b>: ${logText(l)}</li>`;
+    });
+  });
+  if (list.innerHTML === "") list.innerHTML = "<li class='target'>עוד לא נשמרו תרגילים היום</li>";
+}
+
+// כשמקלידים שם תרגיל - מציגים מה היה בפעם הקודמת
+document.getElementById("freeName").addEventListener("input", () => {
+  const name = document.getElementById("freeName").value.trim();
+  const last = getLastLog(name);
+  const tip = document.getElementById("freeTip");
+  if (last) {
+    tip.innerHTML = recommendation({ min: null, max: null }, last);
+    document.getElementById("freeW").value = last.weight;
+  } else {
+    tip.innerHTML = "";
+  }
+});
+
+document.getElementById("freeSave").addEventListener("click", () => {
+  const name = document.getElementById("freeName").value.trim();
+  const weight = Number(document.getElementById("freeW").value) || 0;
+  const reps = [0, 1, 2].map(s => Number(document.getElementById("freeR" + s).value) || 0);
+  const difficulty = Number(document.getElementById("freeD").value) || 0;
+  const msg = document.getElementById("freeMsg");
+
+  if (!name) {
+    msg.textContent = "⚠️ צריך לכתוב שם תרגיל";
+    return;
+  }
+  if (reps.every(r => r === 0)) {
+    msg.textContent = "⚠️ צריך למלא חזרות לפחות בסט אחד";
+    return;
+  }
+
+  addLog(name, weight, reps, difficulty);
+  msg.textContent = "✅ נשמר!";
+
+  // מנקים את הטופס לתרגיל הבא
+  ["freeName", "freeW", "freeR0", "freeR1", "freeR2", "freeD"].forEach(id => {
+    document.getElementById(id).value = "";
+  });
+  document.getElementById("freeTip").innerHTML = "";
+  renderFreeWorkout();
+});
+
+// ===== 14. החלפת משתמש =====
+function renderUserSwitch() {
+  const box = document.getElementById("userSwitch");
+  box.innerHTML = "";
+  Object.keys(USERS).forEach(id => {
+    const b = document.createElement("button");
+    b.textContent = USERS[id];
+    if (id === USER) b.classList.add("active");
+    b.addEventListener("click", () => switchUser(id));
+    box.appendChild(b);
+  });
+}
+
+// לעומרי יש תוכנית קבועה, לשאר - אימון חופשי
+function setupWorkoutTab() {
+  const hasProgram = (USER === "omri");
+  document.getElementById("programWorkout").style.display = hasProgram ? "block" : "none";
+  document.getElementById("freeWorkout").style.display = hasProgram ? "none" : "block";
+  document.getElementById("exerciseList").innerHTML = "";
+  document.querySelectorAll(".pick").forEach(p => p.classList.remove("active"));
+  if (!hasProgram) renderFreeWorkout();
+}
+
+function switchUser(id) {
+  USER = id;
+  localStorage.setItem("currentUser", id);
+  renderUserSwitch();
+  setupWorkoutTab();
+  showTab(currentTab);
+}
+
+// ===== 15. הפעלה כשהאפליקציה נפתחת =====
+renderUserSwitch();
+setupWorkoutTab();
+showTab("workout");
