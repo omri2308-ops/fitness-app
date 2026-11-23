@@ -162,6 +162,7 @@ function showTab(id) {
   if (id === "history") renderHistory();
   if (id === "body") renderBody();
   if (id === "nutrition") showNutrition();
+    if (id === "diary") showDiary();
   document.querySelectorAll(".menu button").forEach(b => {
     b.classList.toggle("active", b.dataset.tab === id);
   });
@@ -616,8 +617,331 @@ function switchUser(id) {
   setupWorkoutTab();
   showTab(currentTab);
 }
+// ===== 16. מאגר המזונות (ערכים ל-100 גרם) =====
+// group: protein / carb / fat / veg   kashrut: meat = בשרי, dairy = חלבי, parve = פרווה
+// kcal = קלוריות, p = חלבון, c = פחמימה, f = שומן (בגרמים, ל-100 גרם)
+// hint = טיפ שמופיע כשבוחרים את המזון
+const foods100 = [
+  // --- חלבון ---
+  { name: "חזה עוף (מבושל)",       group: "protein", kashrut: "meat",  kcal: 165, p: 31,  c: 0,   f: 3.6 },
+  { name: "פרגיות (מבושלות)",      group: "protein", kashrut: "meat",  kcal: 200, p: 27,  c: 0,   f: 10 },
+  { name: "בשר אדום טחון (מבושל)", group: "protein", kashrut: "meat",  kcal: 250, p: 26,  c: 0,   f: 15 },
+  { name: "טונה במים (מסוננת)",    group: "protein", kashrut: "parve", kcal: 116, p: 26,  c: 0,   f: 1 },
+  { name: "ביצה",                  group: "protein", kashrut: "parve", kcal: 143, p: 12.6, c: 0.7, f: 9.5, hint: "ביצה אחת ≈ 50 גרם" },
+  { name: "קוטג׳ 5%",              group: "protein", kashrut: "dairy", kcal: 97,  p: 11,  c: 3,   f: 5,   hint: "גביע ≈ 250 גרם" },
+  { name: "בולגרית 5%",            group: "protein", kashrut: "dairy", kcal: 110, p: 16,  c: 1,   f: 5 },
+  { name: "יוגורט חלבון",          group: "protein", kashrut: "dairy", kcal: 60,  p: 10,  c: 3.5, f: 0.7, hint: "גביע ≈ 200 גרם. כדאי לבדוק בתווית" },
+  { name: "משקה חלבון",            group: "protein", kashrut: "dairy", kcal: 46,  p: 7,   c: 3,   f: 0.6, hint: "בקבוק ≈ 350 מ״ל. כדאי לבדוק בתווית" },
 
+  // --- פחמימה ---
+  { name: "אורז לבן (מבושל)",      group: "carb",    kashrut: "parve", kcal: 130, p: 2.7, c: 28,  f: 0.3 },
+  { name: "פסטה (מבושלת)",         group: "carb",    kashrut: "parve", kcal: 158, p: 5.8, c: 31,  f: 0.9 },
+  { name: "תפוח אדמה (מבושל)",     group: "carb",    kashrut: "parve", kcal: 87,  p: 1.9, c: 20,  f: 0.1 },
+  { name: "פיתה",                  group: "carb",    kashrut: "parve", kcal: 270, p: 9,   c: 55,  f: 1.2, hint: "פיתה ≈ 100 גרם" },
+  { name: "פיתה כוסמין",           group: "carb",    kashrut: "parve", kcal: 250, p: 10,  c: 47,  f: 2,   hint: "פיתה ≈ 90 גרם" },
+  { name: "לחם",                   group: "carb",    kashrut: "parve", kcal: 250, p: 8.5, c: 47,  f: 3,   hint: "פרוסה ≈ 30 גרם" },
+
+  // --- שומן ---
+  { name: "טחינה גולמית",          group: "fat",     kashrut: "parve", kcal: 640, p: 18,  c: 10,  f: 57,  hint: "כף ≈ 15 גרם" },
+  { name: "אבוקדו",                group: "fat",     kashrut: "parve", kcal: 160, p: 2,   c: 8.5, f: 15 },
+  { name: "שמן זית",               group: "fat",     kashrut: "parve", kcal: 884, p: 0,   c: 0,   f: 100, hint: "כף ≈ 13 גרם, כפית ≈ 5 גרם" },
+  { name: "אגוזי מלך",             group: "fat",     kashrut: "parve", kcal: 654, p: 15,  c: 14,  f: 65 },
+
+  // --- ירקות ---
+  { name: "סלט ירקות",             group: "veg",     kashrut: "parve", kcal: 20,  p: 1,   c: 4,   f: 0.2 }
+];
+
+const groupNames = {
+  protein: "🍗 חלבון",
+  carb: "🍚 פחמימה",
+  fat: "🥑 שומן",
+  veg: "🥗 ירקות",
+  custom: "⭐ מזונות שהוספתם"
+};
+const kashrutLabels = { meat: "🥩", dairy: "🥛", parve: "" };
+
+// מזונות שהוספתם בעצמכם (משותפים לכל המשתמשים)
+function loadCustomFoods() {
+  return JSON.parse(localStorage.getItem("fitness_custom_foods")) || [];
+}
+
+function allFoods() {
+  return foods100.concat(loadCustomFoods());
+}
+
+function findFood(name) {
+  return allFoods().find(f => f.name === name);
+}
+
+// הצגת המאגר בלשונית התזונה
+function renderFoods() {
+  const box = document.getElementById("foodList");
+  const list = allFoods();
+  let html = "";
+
+  Object.keys(groupNames).forEach(g => {
+    const items = list.filter(f => f.group === g);
+    if (items.length === 0) return;
+    let rows = "";
+    items.forEach(f => {
+      rows += `<tr>
+        <td>${f.name} ${kashrutLabels[f.kashrut] || ""}</td>
+        <td>${f.kcal}</td>
+        <td>${f.p}</td>
+        <td>${f.c}</td>
+        <td>${f.f}</td>
+      </tr>`;
+    });
+
+    html += `<details>
+      <summary>${groupNames[g]}</summary>
+      <div class="table-wrap">
+        <table>
+          <tr><th>מזון</th><th>קל׳</th><th>חלבון</th><th>פחמ׳</th><th>שומן</th></tr>
+          ${rows}
+        </table>
+      </div>
+    </details>`;
+  });
+
+  box.innerHTML = html +
+    "<p class='target'>🥩 בשרי · 🥛 חלבי<br>* הערכים הם הערכה. במוצרים ארוזים כדאי לבדוק בתווית.</p>";
+}
+
+// ===== 17. יומן אכילה =====
+const MEALS = ["בוקר", "ביניים", "לפני אימון", "ערב (כולל אחרי אימון)"];
+
+// היעדים היומיים לפי השאלון בלשונית התזונה
+function getTargets() {
+  const data = loadData();
+  const p = data.profile;
+  if (!p) return null;
+
+  const body = data.body || [];
+  const weight = body.length ? body[body.length - 1].weight : Number(p.nWeight);
+  const bmr = 10 * weight + 6.25 * Number(p.height) - 5 * Number(p.age) + (p.sex === "male" ? 5 : -161);
+  const tdee = bmr * Number(p.activity);
+
+  let kcal, protein, fat;
+  if (p.goal === "bulk") {
+    kcal = tdee + 7700 / 30;
+    protein = 2 * weight;
+    fat = 1 * weight;
+  } else {
+    kcal = tdee - weight * 0.005 * 7700 / 7;
+    protein = 2.2 * weight;
+    fat = 0.8 * weight;
+  }
+  const carbs = (kcal - protein * 4 - fat * 9) / 4;
+  return { kcal: kcal, p: protein, c: carbs, f: fat };
+}
+
+// חישוב ערכים לפי גרמים
+function calcFood(food, grams) {
+  const k = grams / 100;
+  return { kcal: food.kcal * k, p: food.p * k, c: food.c * k, f: food.f * k };
+}
+
+// היום ביומן (אם אין - יוצרים)
+function getDay(data, date) {
+  if (!data.diary) data.diary = {};
+  if (!data.diary[date]) data.diary[date] = { cheat: false, items: [] };
+  return data.diary[date];
+}
+
+// פס התקדמות
+function bar(label, eaten, target, unit) {
+  const pct = target > 0 ? Math.min(100, eaten / target * 100) : 0;
+  const left = Math.round(target - eaten);
+  const over = left < 0;
+  return `<div class="bar-row">
+    <div class="bar-top"><span>${label}</span><span>${Math.round(eaten)} / ${Math.round(target)} ${unit}</span></div>
+    <div class="bar"><div class="bar-fill ${over ? "over" : ""}" style="width: ${pct}%"></div></div>
+    <div class="bar-left">${over ? "חריגה של " + (-left) : "נשאר " + left} ${unit}</div>
+  </div>`;
+}
+
+// כשנכנסים ללשונית היומן
+function showDiary() {
+  const dateInput = document.getElementById("diaryDate");
+  if (!dateInput.value) dateInput.value = todayISO();
+
+  const select = document.getElementById("diaryMeal");
+  if (select.options.length === 0) {
+    MEALS.forEach(m => select.innerHTML += `<option>${m}</option>`);
+  }
+
+  const datalist = document.getElementById("foodNames");
+  datalist.innerHTML = "";
+  allFoods().forEach(f => datalist.innerHTML += `<option value="${f.name}">`);
+
+  renderDiary();
+}
+
+function renderDiary() {
+  const date = document.getElementById("diaryDate").value;
+  const data = loadData();
+  const day = (data.diary && data.diary[date]) || { cheat: false, items: [] };
+  document.getElementById("cheatDay").checked = day.cheat;
+
+  // סיכום היום
+  const total = { kcal: 0, p: 0, c: 0, f: 0 };
+  day.items.forEach(i => {
+    total.kcal += i.kcal;
+    total.p += i.p;
+    total.c += i.c;
+    total.f += i.f;
+  });
+
+  const bars = document.getElementById("diaryBars");
+  const target = getTargets();
+  if (day.cheat) {
+    bars.innerHTML = "<div class='result-box'><p>🍔 יום צ׳יט – תהנה! היום לא נספר.</p></div>";
+  } else if (!target) {
+    bars.innerHTML = "<div class='result-box'><p class='target'>כדי לראות יעדים, מלא קודם את השאלון בלשונית 🍽️ תזונה</p></div>";
+  } else {
+    bars.innerHTML = `<div class="result-box">
+      ${bar("קלוריות", total.kcal, target.kcal, "קל׳")}
+      ${bar("חלבון", total.p, target.p, "ג׳")}
+      ${bar("פחמימה", total.c, target.c, "ג׳")}
+      ${bar("שומן", total.f, target.f, "ג׳")}
+    </div>`;
+  }
+
+  // הארוחות
+  let html = "";
+  MEALS.forEach(meal => {
+    const items = day.items
+      .map((item, index) => ({ item: item, index: index }))
+      .filter(x => x.item.meal === meal);
+    const mealKcal = items.reduce((sum, x) => sum + x.item.kcal, 0);
+
+    let rows = "";
+    items.forEach(x => {
+      rows += `<li>
+        <span>${x.item.name} · ${x.item.grams} ג׳</span>
+        <span>${Math.round(x.item.kcal)} קל׳</span>
+        <button class="del" onclick="deleteDiaryItem(${x.index})">🗑</button>
+      </li>`;
+    });
+
+    html += `<div class="meal-box">
+      <div class="meal-head"><b>${meal}</b><span>${Math.round(mealKcal)} קל׳</span></div>
+      <ul>${rows || "<li class='target'>ריק</li>"}</ul>
+    </div>`;
+  });
+  document.getElementById("diaryMeals").innerHTML = html;
+}
+
+// תצוגה מקדימה בזמן ההקלדה
+function previewFood() {
+  const food = findFood(document.getElementById("diaryFood").value.trim());
+  const grams = Number(document.getElementById("diaryGrams").value);
+  const box = document.getElementById("diaryPreview");
+
+  if (!food) {
+    box.innerHTML = "";
+    return;
+  }
+  if (!grams) {
+    box.innerHTML = `ל-100 גרם: ${food.kcal} קל׳ · חלבון ${food.p} · פחמימה ${food.c} · שומן ${food.f}` +
+      (food.hint ? "<br>💡 " + food.hint : "");
+    return;
+  }
+  const v = calcFood(food, grams);
+  box.innerHTML = `${grams} גרם = <b>${Math.round(v.kcal)} קלוריות</b> · חלבון ${v.p.toFixed(1)} · פחמימה ${v.c.toFixed(1)} · שומן ${v.f.toFixed(1)}`;
+}
+
+document.getElementById("diaryFood").addEventListener("input", previewFood);
+document.getElementById("diaryGrams").addEventListener("input", previewFood);
+document.getElementById("diaryDate").addEventListener("change", renderDiary);
+
+// הוספה ליומן
+document.getElementById("diaryAdd").addEventListener("click", () => {
+  const food = findFood(document.getElementById("diaryFood").value.trim());
+  const grams = Number(document.getElementById("diaryGrams").value);
+  const msg = document.getElementById("diaryMsg");
+
+  if (!food) {
+    msg.textContent = "⚠️ בחר מזון מהרשימה (או הוסף מזון חדש למטה)";
+    return;
+  }
+  if (!grams) {
+    msg.textContent = "⚠️ צריך לכתוב כמות בגרמים";
+    return;
+  }
+
+  const date = document.getElementById("diaryDate").value;
+  const meal = document.getElementById("diaryMeal").value;
+  const data = loadData();
+  const day = getDay(data, date);
+  const v = calcFood(food, grams);
+  day.items.push({ meal: meal, name: food.name, grams: grams, kcal: v.kcal, p: v.p, c: v.c, f: v.f });
+  saveData(data);
+
+  document.getElementById("diaryFood").value = "";
+  document.getElementById("diaryGrams").value = "";
+  document.getElementById("diaryPreview").innerHTML = "";
+  msg.textContent = "✅ נוסף ליומן";
+  renderDiary();
+});
+
+// מחיקה מהיומן
+function deleteDiaryItem(index) {
+  if (!confirm("למחוק את הפריט?")) return;
+  const date = document.getElementById("diaryDate").value;
+  const data = loadData();
+  data.diary[date].items.splice(index, 1);
+  saveData(data);
+  renderDiary();
+}
+
+// יום צ׳יט
+document.getElementById("cheatDay").addEventListener("change", () => {
+  const date = document.getElementById("diaryDate").value;
+  const data = loadData();
+  const day = getDay(data, date);
+  day.cheat = document.getElementById("cheatDay").checked;
+  saveData(data);
+  renderDiary();
+});
+
+// הוספת מזון חדש למאגר
+document.getElementById("newFoodSave").addEventListener("click", () => {
+  const name = document.getElementById("newFoodName").value.trim();
+  const kcal = Number(document.getElementById("newKcal").value);
+  const msg = document.getElementById("newFoodMsg");
+
+  if (!name || !kcal) {
+    msg.textContent = "⚠️ צריך לפחות שם וקלוריות";
+    return;
+  }
+  if (findFood(name)) {
+    msg.textContent = "⚠️ כבר יש מזון בשם הזה";
+    return;
+  }
+
+  const custom = loadCustomFoods();
+  custom.push({
+    name: name,
+    group: "custom",
+    kashrut: "parve",
+    kcal: kcal,
+    p: Number(document.getElementById("newP").value) || 0,
+    c: Number(document.getElementById("newC").value) || 0,
+    f: Number(document.getElementById("newF").value) || 0
+  });
+  localStorage.setItem("fitness_custom_foods", JSON.stringify(custom));
+
+  ["newFoodName", "newKcal", "newP", "newC", "newF"].forEach(id => {
+    document.getElementById(id).value = "";
+  });
+  msg.textContent = "✅ נשמר! עכשיו אפשר לחפש אותו למעלה";
+  showDiary();
+  renderFoods();
+});
 // ===== 15. הפעלה כשהאפליקציה נפתחת =====
 renderUserSwitch();
 setupWorkoutTab();
+renderFoods();
 showTab("workout");

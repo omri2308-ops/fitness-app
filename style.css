@@ -256,3 +256,68 @@ body {
   border-bottom: 1px solid #333845;
   font-size: 14px;
 }
+.sub { font-size: 16px; margin: 20px 0 8px; }
+/* יומן אכילה */
+.check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #f1f1f1;
+  font-size: 15px;
+  margin: 4px 0 12px;
+}
+.check input { width: auto; margin: 0; }
+
+.add-box {
+  background: #252932;
+  border-radius: 12px;
+  padding: 16px;
+  margin: 12px 0;
+}
+.add-box input, .add-box select { background: #1a1d24; }
+
+/* פסי התקדמות */
+.bar-row { margin-bottom: 12px; }
+.bar-top {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+.bar {
+  height: 10px;
+  background: #1a1d24;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.bar-fill {
+  height: 100%;
+  background: #4ade80;
+  border-radius: 6px;
+  transition: width 0.4s;
+}
+.bar-fill.over { background: #f87171; }
+.bar-left { font-size: 12px; color: #9ca3af; margin-top: 3px; }
+
+/* ארוחות */
+.meal-box {
+  background: #252932;
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin-bottom: 8px;
+}
+.meal-head {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.meal-box ul { list-style: none; }
+.meal-box li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-top: 1px solid #333845;
+  font-size: 14px;
+}

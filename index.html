@@ -64,7 +64,40 @@
     <canvas id="bodyChart"></canvas>
     <ul id="bodyHistory"></ul>
   </section>
+  <!-- לשונית 5: יומן אכילה -->
+  <section id="diary" class="tab">
+    <h2>יומן אכילה</h2>
+    <input type="date" id="diaryDate">
+    <label class="check"><input type="checkbox" id="cheatDay"> 🍔 יום צ׳יט (לא נספר)</label>
+    <div id="diaryBars"></div>
 
+    <div class="add-box">
+      <h3 class="sub">הוספת מזון</h3>
+      <select id="diaryMeal"></select>
+      <input type="text" id="diaryFood" list="foodNames" placeholder="חפש מזון (למשל: אורז)">
+      <datalist id="foodNames"></datalist>
+      <input type="number" id="diaryGrams" placeholder="כמות בגרמים">
+      <p class="tip" id="diaryPreview"></p>
+      <button id="diaryAdd">הוסף ליומן</button>
+      <p class="msg" id="diaryMsg"></p>
+    </div>
+
+    <div id="diaryMeals"></div>
+
+    <details>
+      <summary>➕ מזון חדש שלא ברשימה</summary>
+      <input type="text" id="newFoodName" placeholder="שם המזון">
+      <p class="target">ערכים ל-100 גרם (מהתווית):</p>
+      <div class="sets">
+        <input type="number" id="newKcal" placeholder="קלוריות">
+        <input type="number" id="newP" placeholder="חלבון">
+        <input type="number" id="newC" placeholder="פחמימה">
+        <input type="number" id="newF" placeholder="שומן">
+      </div>
+      <button id="newFoodSave">שמור מזון</button>
+      <p class="msg" id="newFoodMsg"></p>
+    </details>
+  </section>
   <!-- לשונית 3: תזונה -->
   <section id="nutrition" class="tab">
     <h2>תזונה</h2>
@@ -102,6 +135,8 @@
 
     <button id="calcBtn">חשב</button>
     <div id="calResult"></div>
+        <h3 class="sub">מאגר מזונות ל-100 גרם</h3>
+    <div id="foodList"></div>
   </section>
 
   <!-- לשונית 4: היסטוריה -->
@@ -115,6 +150,7 @@
     <button data-tab="workout">🏋️ אימון</button>
     <button data-tab="history">📊 היסטוריה</button>
     <button data-tab="body">⚖️ משקל</button>
+        <button data-tab="diary">📒 יומן</button>
     <button data-tab="nutrition">🍽️ תזונה</button>
   </nav>
 
