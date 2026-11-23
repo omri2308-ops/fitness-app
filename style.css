@@ -1,0 +1,226 @@
+/* איפוס בסיסי */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* כל העמוד */
+body {
+  font-family: 'Rubik', sans-serif;
+  background: #0f1115;
+  color: #f1f1f1;
+  padding: 20px 16px 100px;
+}
+
+h1 {
+  font-size: 26px;
+  margin-bottom: 20px;
+}
+
+/* כל לשונית - כרטיס */
+.tab {
+  background: #1a1d24;
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 16px;
+}
+
+.tab h2 {
+  font-size: 18px;
+  margin-bottom: 14px;
+  color: #4ade80;
+}
+
+/* שדות הקלדה ובחירה */
+input, select {
+  width: 100%;
+  padding: 14px;
+  margin-bottom: 10px;
+  background: #252932;
+  border: 1px solid #333845;
+  border-radius: 12px;
+  color: #fff;
+  font-family: inherit;
+  font-size: 16px;
+}
+
+input:focus, select:focus {
+  outline: none;
+  border-color: #4ade80;
+}
+
+/* כפתורי שמירה */
+.tab button {
+  width: 100%;
+  padding: 14px;
+  background: #4ade80;
+  color: #0f1115;
+  border: none;
+  border-radius: 12px;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.1s, background 0.2s;
+}
+
+.tab button:hover {
+  background: #22c55e;
+}
+
+.tab button:active {
+  transform: scale(0.97);
+}
+
+/* תפריט תחתון */
+.menu {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  background: #1a1d24;
+  border-top: 1px solid #2a2e38;
+}
+
+.menu button {
+  flex: 1;
+  padding: 14px 0;
+  background: none;
+  border: none;
+  color: #9ca3af;
+  font-family: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.menu button:hover {
+  color: #4ade80;
+}
+/* הצגת לשונית אחת בכל פעם */
+.tab { display: none; }
+.tab.active { display: block; }
+.menu button.active { color: #4ade80; }
+
+/* כפתורי בחירת אימון */
+.workout-picker {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.tab .pick {
+  background: #252932;
+  color: #f1f1f1;
+}
+.tab .pick.active {
+  background: #4ade80;
+  color: #0f1115;
+}
+
+/* כרטיס תרגיל */
+.exercise-card {
+  background: #252932;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+.exercise-card h3 { font-size: 16px; margin-bottom: 6px; }
+.exercise-card input { background: #1a1d24; }
+.target { color: #9ca3af; font-size: 14px; }
+.tip { font-size: 14px; margin: 8px 0 12px; line-height: 1.6; }
+.sets { display: flex; gap: 6px; }
+.sets input { min-width: 0; padding: 10px; text-align: center; }
+.msg { color: #4ade80; font-size: 14px; margin-top: 8px; }
+/* טבלאות היסטוריה */
+.table-wrap { overflow-x: auto; }
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  margin: 8px 0;
+}
+th, td {
+  padding: 8px 6px;
+  text-align: right;
+  border-bottom: 1px solid #333845;
+}
+th { color: #9ca3af; font-weight: 500; }
+.up { color: #4ade80; font-weight: 700; }
+.down { color: #f87171; font-weight: 700; }
+#historyContent h3 { font-size: 16px; margin: 16px 0 4px; }
+
+/* היסטוריה מלאה שנפתחת בלחיצה */
+details {
+  background: #252932;
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin-bottom: 8px;
+}
+summary { cursor: pointer; font-weight: 500; }
+/* כפתור מחיקה */
+.tab .del {
+  width: auto;
+  padding: 4px 8px;
+  background: none;
+  font-size: 16px;
+}
+.tab .del:hover { background: #3a2a2a; }
+
+/* משקל גוף */
+input[type="date"] { color-scheme: dark; }
+#bodyStats p { margin: 6px 0; }
+#bodyChart { margin: 12px 0; }
+#bodyHistory { list-style: none; margin-top: 12px; }
+#bodyHistory li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #333845;
+}
+/* תזונה */
+label {
+  display: block;
+  font-size: 14px;
+  color: #9ca3af;
+  margin: 6px 0 4px;
+}
+.result-box {
+  background: #252932;
+  border-radius: 12px;
+  padding: 16px;
+  margin-top: 12px;
+  line-height: 1.7;
+}
+.big {
+  font-size: 28px;
+  font-weight: 700;
+  color: #4ade80;
+}
+.macros {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+.macro {
+  flex: 1;
+  background: #1a1d24;
+  border-radius: 10px;
+  padding: 10px;
+  text-align: center;
+}
+/* אייפון ואייפד */
+body {
+  max-width: 700px;
+  margin: 0 auto;
+  padding-top: calc(20px + env(safe-area-inset-top));
+  padding-bottom: calc(100px + env(safe-area-inset-bottom));
+  -webkit-tap-highlight-color: transparent;
+}
+.menu {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.menu button {
+  font-size: 13px;
+}

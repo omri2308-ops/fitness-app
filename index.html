@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">  <title>מעקב אימונים</title>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="אימונים">
+  <meta name="theme-color" content="#0f1115">
+  <link rel="apple-touch-icon" href="icon.png">
+  <link rel="manifest" href="manifest.json">
+  <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <h1>מעקב אימונים 💪</h1>
+
+  <!-- לשונית 1: אימון -->
+  <section id="workout" class="tab">
+    <h2>אימון</h2>
+    <div class="workout-picker">
+      <button class="pick" data-workout="A">אימון A</button>
+      <button class="pick" data-workout="B">אימון B</button>
+      <button class="pick" data-workout="C">אימון C</button>
+    </div>
+    <div id="exerciseList"></div>
+  </section>
+
+  <!-- לשונית 2: משקל גוף -->
+  <section id="body" class="tab">
+    <h2>משקל גוף</h2>
+    <input type="date" id="bodyDate">
+    <input type="number" id="bodyWeight" step="0.1" placeholder="משקל (ק״ג)">
+    <button id="saveBody">שמור</button>
+    <p class="msg" id="bodyMsg"></p>
+    <div id="bodyStats"></div>
+    <canvas id="bodyChart"></canvas>
+    <ul id="bodyHistory"></ul>
+  </section>
+
+    <!-- לשונית 3: תזונה -->
+  <section id="nutrition" class="tab">
+    <h2>תזונה</h2>
+    <p class="target">שאלון קצר – התשובות נשמרות</p>
+
+    <label>מין</label>
+    <select id="sex">
+      <option value="male">גבר</option>
+      <option value="female">אישה</option>
+    </select>
+
+    <label>גיל</label>
+    <input type="number" id="age">
+
+    <label>גובה (ס״מ)</label>
+    <input type="number" id="height">
+
+    <label>משקל (ק״ג)</label>
+    <input type="number" id="nWeight" step="0.1">
+
+    <label>רמת פעילות</label>
+    <select id="activity">
+      <option value="1.2">יושבני – כמעט בלי פעילות</option>
+      <option value="1.375">קל – 1-3 אימונים בשבוע</option>
+      <option value="1.55" selected>בינוני – 3-5 אימונים בשבוע</option>
+      <option value="1.725">גבוה – 6-7 אימונים בשבוע</option>
+      <option value="1.9">גבוה מאוד – עבודה פיזית + אימונים</option>
+    </select>
+
+    <label>תהליך</label>
+    <select id="goal">
+      <option value="bulk">מסה</option>
+      <option value="cut">חיטוב</option>
+    </select>
+
+    <button id="calcBtn">חשב</button>
+    <div id="calResult"></div>
+  </section>
+
+  <!-- תפריט תחתון -->
+  <nav class="menu">
+    <button data-tab="workout">🏋️ אימון</button>
+    <button data-tab="history">📊 היסטוריה</button>
+    <button data-tab="body">⚖️ משקל</button>
+    <button data-tab="nutrition">🍽️ תזונה</button>
+  </nav>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
