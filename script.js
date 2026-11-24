@@ -777,11 +777,11 @@ function showDiary() {
 
   renderDiary();
 }
-
 function renderDiary() {
   const date = document.getElementById("diaryDate").value;
   const data = loadData();
   const day = (data.diary && data.diary[date]) || { cheat: false, items: [] };
+  const favs = data.favorites || [];
   document.getElementById("cheatDay").checked = day.cheat;
 
   // סיכום היום
@@ -810,7 +810,7 @@ function renderDiary() {
 
   // הארוחות
   let html = "";
-  MEALS.forEach(meal => {
+  MEALS.forEach((meal, mealIndex) => {
     const items = day.items
       .map((item, index) => ({ item: item, index: index }))
       .filter(x => x.item.meal === meal);
@@ -818,19 +818,28 @@ function renderDiary() {
 
     let rows = "";
     items.forEach(x => {
+      const isFav = favs.some(f => f.name === x.item.name);
       rows += `<li>
         <span>${x.item.name} · ${x.item.grams} ג׳</span>
         <span>${Math.round(x.item.kcal)} קל׳</span>
-        <button class="del" onclick="deleteDiaryItem(${x.index})">🗑</button>
+        <span>
+          <button class="del" onclick="toggleFav(${x.index})">${isFav ? "⭐" : "☆"}</button>
+          <button class="del" onclick="deleteDiaryItem(${x.index})">🗑</button>
+        </span>
       </li>`;
     });
 
     html += `<div class="meal-box">
-      <div class="meal-head"><b>${meal}</b><span>${Math.round(mealKcal)} קל׳</span></div>
+      <div class="meal-head">
+        <b>${meal}</b>
+        <span>${Math.round(mealKcal)} קל׳ <button class="copy-btn" onclick="copyMeal(${mealIndex})">📋 מאתמול</button></span>
+      </div>
       <ul>${rows || "<li class='target'>ריק</li>"}</ul>
     </div>`;
   });
   document.getElementById("diaryMeals").innerHTML = html;
+
+  renderQuick();
 }
 
 // תצוגה מקדימה בזמן ההקלדה
@@ -1114,6 +1123,118 @@ document.getElementById("restoreFile").addEventListener("change", e => {
   reader.readAsText(file);
   e.target.value = "";
 });
+// ===== 20. הוספה מהירה, מועדפים והעתקה מאתמול =====
+
+// תאריך לפני/אחרי מספר ימים (למשל אתמול = -1)
+function shiftDate(iso, days) {
+  const d = new Date(iso + "T12:00:00");
+  d.setDate(d.getDate() + days);
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0, 10);
+}
+
+// המזונות האחרונים שהוזנו (בלי כפילויות, עד 8)
+function getRecent(data) {
+  const dates = Object.keys(data.diary || {}).sort().reverse();
+  const seen = {};
+  const list = [];
+  dates.forEach(d => {
+    data.diary[d].items.slice().reverse().forEach(it => {
+      if (!seen[it.name] && list.length < 8) {
+        seen[it.name] = true;
+        list.push({ name: it.name, grams: it.grams });
+      }
+    });
+  });
+  return list;
+}
+
+// הכפתורים של ההוספה המהירה
+function renderQuick() {
+  const data = loadData();
+  const favs = data.favorites || [];
+  const recent = getRecent(data).filter(r => !favs.some(f => f.name === r.name));
+  const box = document.getElementById("quickFoods");
+
+  let chips = "";
+  favs.forEach(f => chips += chip(f, true));
+  recent.forEach(r => chips += chip(r, false));
+
+  box.innerHTML = chips
+    ? "<p class='target'>⚡ לחיצה אחת = הוספה לארוחה שנבחרה</p><div class='chips'>" + chips + "</div>"
+    : "";
+}
+
+function chip(item, isFav) {
+  const safeName = item.name.replace(/"/g, "&quot;");
+  return `<button class="chip" data-name="${safeName}" data-grams="${item.grams}">
+    ${isFav ? "⭐ " : ""}${item.name} · ${item.grams} ג׳
+  </button>`;
+}
+
+// לחיצה על כפתור מהיר - מוסיף ישר ליומן
+document.getElementById("quickFoods").addEventListener("click", e => {
+  const btn = e.target.closest(".chip");
+  if (!btn) return;
+  quickAdd(btn.dataset.name, Number(btn.dataset.grams));
+});
+
+function quickAdd(name, grams) {
+  const msg = document.getElementById("diaryMsg");
+  const food = findFood(name);
+  if (!food) {
+    msg.textContent = "⚠️ המזון הזה כבר לא קיים במאגר";
+    return;
+  }
+  const date = document.getElementById("diaryDate").value;
+  const meal = document.getElementById("diaryMeal").value;
+  const data = loadData();
+  const day = getDay(data, date);
+  const v = calcFood(food, grams);
+  day.items.push({ meal: meal, name: food.name, grams: grams, kcal: v.kcal, p: v.p, c: v.c, f: v.f });
+  saveData(data);
+  msg.textContent = "✅ " + food.name + " נוסף ל" + meal;
+  renderDiary();
+}
+
+// הוספה/הסרה ממועדפים
+function toggleFav(index) {
+  const date = document.getElementById("diaryDate").value;
+  const data = loadData();
+  const item = data.diary[date].items[index];
+  if (!data.favorites) data.favorites = [];
+
+  const exists = data.favorites.some(f => f.name === item.name);
+  if (exists) {
+    data.favorites = data.favorites.filter(f => f.name !== item.name);
+  } else {
+    data.favorites.push({ name: item.name, grams: item.grams });
+  }
+  saveData(data);
+  renderDiary();
+}
+
+// העתקת ארוחה מאתמול
+function copyMeal(mealIndex) {
+  const meal = MEALS[mealIndex];
+  const date = document.getElementById("diaryDate").value;
+  const yesterday = shiftDate(date, -1);
+  const data = loadData();
+  const msg = document.getElementById("diaryMsg");
+
+  const old = (data.diary && data.diary[yesterday]) ? data.diary[yesterday].items : [];
+  const toCopy = old.filter(it => it.meal === meal);
+  if (toCopy.length === 0) {
+    msg.textContent = "⚠️ אתמול לא נרשם כלום ב" + meal;
+    return;
+  }
+
+  const day = getDay(data, date);
+  toCopy.forEach(it => day.items.push(Object.assign({}, it)));
+  saveData(data);
+  msg.textContent = "✅ הועתקו " + toCopy.length + " פריטים מאתמול";
+  renderDiary();
+}
 // ===== 15. הפעלה כשהאפליקציה נפתחת =====
 renderUserSwitch();
 setupWorkoutTab();
