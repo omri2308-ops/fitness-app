@@ -379,3 +379,7 @@ body {
   font-weight: 500;
 }
 .tab .copy-btn:hover { background: #333845; }
+/* תפריט גמיש */
+#menuBox { margin-top: 12px; }
+#menuBox .meal-box > .copy-btn { margin: 8px 0 0; }
+#menuBox .meal-box .target { margin-top: 6px; }

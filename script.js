@@ -162,6 +162,7 @@ function showTab(id) {
   if (id === "history") renderHistory();
   if (id === "body") renderBody();
   if (id === "nutrition") showNutrition();
+    if (id === "nutrition") renderMenu();
     if (id === "diary") showDiary();
   document.querySelectorAll(".menu button").forEach(b => {
     b.classList.toggle("active", b.dataset.tab === id);
@@ -1234,6 +1235,197 @@ function copyMeal(mealIndex) {
   saveData(data);
   msg.textContent = "✅ הועתקו " + toCopy.length + " פריטים מאתמול";
   renderDiary();
+}
+// ===== 21. תפריט גמיש =====
+// איזה חלק מהיעד היומי הולך לכל ארוחה (בוקר, ביניים, לפני אימון, ערב)
+// יותר פחמימות סביב האימון, פחות שומן לפני האימון
+const MEAL_SHARE = {
+  protein: [0.25, 0.20, 0.25, 0.30],
+  carb:    [0.20, 0.15, 0.30, 0.35],
+  fat:     [0.30, 0.25, 0.15, 0.30]
+};
+const MENU_GROUPS = { protein: "🍗", carb: "🍚", fat: "🥑" };
+const VEG_GRAMS = 150;   // סלט ירקות בכל ארוחה
+
+// אילו מזונות מותרים בארוחה (בשרי / חלבי + פרווה)
+function menuOptions(group, type) {
+  return foods100.filter(f => f.group === group && (f.kashrut === "parve" || f.kashrut === type));
+}
+
+function randomItem(list) {
+  return list[Math.floor(Math.random() * list.length)];
+}
+
+// בחירה אקראית של מאכלים לארוחה
+function randomPicks(type) {
+  return {
+    protein: randomItem(menuOptions("protein", type)).name,
+    carb: randomItem(menuOptions("carb", type)).name,
+    fat: randomItem(menuOptions("fat", type)).name
+  };
+}
+
+// התפריט השמור (אם אין - יוצרים חדש)
+function getMenu(data) {
+  if (!data.menu) {
+    const types = ["dairy", "dairy", "meat", "meat"];
+    data.menu = { types: types, picks: types.map(t => randomPicks(t)) };
+  }
+  return data.menu;
+}
+
+function round5(x) {
+  return Math.max(0, Math.round(x / 5) * 5);
+}
+
+// חישוב הכמויות של ארוחה אחת
+function buildMeal(mealIndex, target, type, picks) {
+  const P = target.p * MEAL_SHARE.protein[mealIndex];
+  const C = target.c * MEAL_SHARE.carb[mealIndex];
+  const F = target.f * MEAL_SHARE.fat[mealIndex];
+
+  const veg = findFood("סלט ירקות");
+  const pf = findFood(picks.protein);
+  const cf = findFood(picks.carb);
+  const ff = findFood(picks.fat);
+
+  // מחשבים כמה סבבים: כל סבב מתחשב גם במה ששאר המאכלים כבר נותנים
+  let gP = 0, gC = 0, gF = 0;
+  for (let i = 0; i < 6; i++) {
+    gC = Math.max(0, (C - (pf.c * gP + ff.c * gF + veg.c * VEG_GRAMS) / 100) / (cf.c / 100));
+    gP = Math.max(0, (P - (cf.p * gC + ff.p * gF + veg.p * VEG_GRAMS) / 100) / (pf.p / 100));
+    gF = Math.max(0, (F - (pf.f * gP + cf.f * gC + veg.f * VEG_GRAMS) / 100) / (ff.f / 100));
+  }
+  gP = round5(gP);
+  gC = round5(gC);
+  gF = round5(gF);
+
+  return [
+    { group: "protein", food: pf, grams: gP },
+    { group: "carb", food: cf, grams: gC },
+    { group: "fat", food: ff, grams: gF },
+    { group: "veg", food: veg, grams: VEG_GRAMS }
+  ];
+}
+
+function renderMenu() {
+  const box = document.getElementById("menuBox");
+  const target = getTargets();
+  if (!target) {
+    box.innerHTML = "<p class='target'>מלא קודם את השאלון ולחץ חשב</p>";
+    return;
+  }
+
+  const data = loadData();
+  const menu = getMenu(data);
+  saveData(data);
+
+  const dayTotal = { kcal: 0, p: 0, c: 0, f: 0 };
+  let html = "";
+
+  MEALS.forEach((meal, mi) => {
+    const type = menu.types[mi];
+    const items = buildMeal(mi, target, type, menu.picks[mi]);
+    const mealTotal = { kcal: 0, p: 0, c: 0, f: 0 };
+
+    let rows = "";
+    items.forEach(it => {
+      const v = calcFood(it.food, it.grams);
+      ["kcal", "p", "c", "f"].forEach(k => {
+        mealTotal[k] += v[k];
+        dayTotal[k] += v[k];
+      });
+      if (it.grams === 0) return;
+      const swap = it.group === "veg"
+        ? ""
+        : `<button class="del" onclick="swapFood(${mi}, '${it.group}')">🔄</button>`;
+      rows += `<li>
+        <span>${MENU_GROUPS[it.group] || "🥗"} ${it.food.name} · <b>${it.grams} ג׳</b></span>
+        <span>${Math.round(v.kcal)} קל׳</span>
+        <span>${swap}</span>
+      </li>`;
+    });
+
+    html += `<div class="meal-box">
+      <div class="meal-head">
+        <b>${meal}</b>
+        <button class="copy-btn" onclick="toggleMealType(${mi})">${type === "meat" ? "🥩 בשרי" : "🥛 חלבי"}</button>
+      </div>
+      <ul>${rows}</ul>
+      <p class="target">${Math.round(mealTotal.kcal)} קל׳ · חלבון ${Math.round(mealTotal.p)} · פחמימה ${Math.round(mealTotal.c)} · שומן ${Math.round(mealTotal.f)}</p>
+      <button class="copy-btn" onclick="menuToDiary(${mi})">➕ הוסף ליומן של היום</button>
+    </div>`;
+  });
+
+  box.innerHTML = `<div class="result-box">
+      <p>סה״כ בתפריט: <b>${Math.round(dayTotal.kcal)}</b> מתוך ${Math.round(target.kcal)} קל׳</p>
+      <p class="target">חלבון ${Math.round(dayTotal.p)}/${Math.round(target.p)} · פחמימה ${Math.round(dayTotal.c)}/${Math.round(target.c)} · שומן ${Math.round(dayTotal.f)}/${Math.round(target.f)}</p>
+    </div>` + html;
+}
+
+// 🔄 החלפת מאכל באחר מאותה קבוצה
+function swapFood(mealIndex, group) {
+  const data = loadData();
+  const menu = getMenu(data);
+  const list = menuOptions(group, menu.types[mealIndex]);
+  const current = list.findIndex(f => f.name === menu.picks[mealIndex][group]);
+  menu.picks[mealIndex][group] = list[(current + 1) % list.length].name;
+  saveData(data);
+  renderMenu();
+}
+
+// 🥛/🥩 החלפת סוג הארוחה
+function toggleMealType(mealIndex) {
+  const data = loadData();
+  const menu = getMenu(data);
+  const type = menu.types[mealIndex] === "meat" ? "dairy" : "meat";
+  menu.types[mealIndex] = type;
+
+  // אם מאכל כבר לא מתאים לסוג החדש - מחליפים אותו
+  ["protein", "carb", "fat"].forEach(g => {
+    const list = menuOptions(g, type);
+    if (!list.some(f => f.name === menu.picks[mealIndex][g])) {
+      menu.picks[mealIndex][g] = list[0].name;
+    }
+  });
+  saveData(data);
+  renderMenu();
+}
+
+// 🎲 תפריט חדש
+document.getElementById("newMenuBtn").addEventListener("click", () => {
+  const data = loadData();
+  const menu = getMenu(data);
+  menu.picks = menu.types.map(t => randomPicks(t));
+  saveData(data);
+  renderMenu();
+});
+
+// אחרי לחיצה על "חשב" - מעדכנים גם את התפריט
+document.getElementById("calcBtn").addEventListener("click", renderMenu);
+
+// ➕ הוספת ארוחה מהתפריט ליומן של היום
+function menuToDiary(mealIndex) {
+  const target = getTargets();
+  if (!target) return;
+  const data = loadData();
+  const menu = getMenu(data);
+  const items = buildMeal(mealIndex, target, menu.types[mealIndex], menu.picks[mealIndex]);
+  const day = getDay(data, todayISO());
+
+  items.filter(it => it.grams > 0).forEach(it => {
+    const v = calcFood(it.food, it.grams);
+    day.items.push({
+      meal: MEALS[mealIndex], name: it.food.name, grams: it.grams,
+      kcal: v.kcal, p: v.p, c: v.c, f: v.f
+    });
+  });
+  saveData(data);
+  alertMsg("✅ " + MEALS[mealIndex] + " נוספה ליומן של היום");
+}
+
+function alertMsg(text) {
+  document.getElementById("menuMsg").textContent = text;
 }
 // ===== 15. הפעלה כשהאפליקציה נפתחת =====
 renderUserSwitch();
