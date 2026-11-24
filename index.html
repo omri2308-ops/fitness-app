@@ -23,6 +23,7 @@
   <!-- לשונית 1: אימון -->
   <section id="workout" class="tab">
     <h2>אימון</h2>
+        <div id="restPicker" class="rest-picker"></div>
 
     <!-- תוכנית קבועה (עומרי) -->
     <div id="programWorkout">
@@ -164,6 +165,14 @@
       <p class="msg" id="backupMsg"></p>
     </div>
   </section>
+    <!-- טיימר מנוחה -->
+  <div id="restTimer" class="rest-timer">
+    <span>⏱️ מנוחה</span>
+    <b id="restTime">1:30</b>
+    <button onclick="addRest(-15)">−15</button>
+    <button onclick="addRest(15)">+15</button>
+    <button onclick="stopRest()">✖</button>
+  </div>
 
   <!-- תפריט תחתון -->
   <nav class="menu">

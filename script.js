@@ -136,6 +136,7 @@ function addLog(name, weight, reps, difficulty) {
     difficulty: difficulty
   });
   saveData(data);
+    startRest(getRestSeconds());   // מפעיל את טיימר המנוחה
 }
 
 function saveExercise(letter, i) {
@@ -183,6 +184,8 @@ document.querySelectorAll(".pick").forEach(b => {
 });
 
 // ===== 10. היסטוריה והתקדמות =====
+let historyCharts = [];   // הגרפים שמוצגים כרגע
+
 function score(log) {
   const total = log.reps.reduce((a, b) => a + b, 0);
   return log.weight > 0 ? log.weight * total : total;
@@ -192,10 +195,29 @@ function logText(log) {
   return (log.weight > 0 ? log.weight + " ק״ג × " : "") + log.reps.join("/");
 }
 
+// אחוז שינוי בין שני ערכים
+function pct(before, now) {
+  return before > 0 ? Math.round((now - before) / before * 100) : 0;
+}
+function pctText(p) {
+  return (p > 0 ? "+" : "") + p + "%";
+}
+function pctClass(p) {
+  return p > 0 ? "up" : p < 0 ? "down" : "";
+}
+
+// תאריך קצר לגרף (24.11)
+function shortDate(d) {
+  return d.split(".").slice(0, 2).join(".");
+}
+
 function renderHistory() {
   const data = loadData();
   const box = document.getElementById("historyContent");
   const names = Object.keys(data.logs);
+
+  historyCharts.forEach(c => c.destroy());
+  historyCharts = [];
 
   if (names.length === 0) {
     box.innerHTML = "<p class='target'>עוד אין אימונים שמורים</p>";
@@ -206,22 +228,27 @@ function renderHistory() {
   let rows = "";
   let details = "";
 
-  names.forEach(name => {
+  names.forEach((name, n) => {
     const logs = data.logs[name];
     const now = logs[logs.length - 1];
     const before = logs.filter(l => l.time && l.time <= twoWeeksAgo).pop() || logs[0];
-
-    const percent = score(before) > 0
-      ? Math.round((score(now) - score(before)) / score(before) * 100)
-      : 0;
-    const color = percent > 0 ? "up" : percent < 0 ? "down" : "";
+    const twoWeeks = pct(score(before), score(now));
 
     rows += `<tr>
       <td>${name}</td>
       <td>${logText(before)}</td>
       <td>${logText(now)}</td>
-      <td class="${color}">${percent > 0 ? "+" : ""}${percent}%</td>
+      <td class="${pctClass(twoWeeks)}">${pctText(twoWeeks)}</td>
     </tr>`;
+
+    // אחוזים: מההתחלה ומהפעם הקודמת + שיא
+    const fromStart = pct(score(logs[0]), score(now));
+    const prev = logs.length > 1 ? logs[logs.length - 2] : null;
+    const fromPrev = prev ? pct(score(prev), score(now)) : 0;
+    const maxWeight = Math.max(...logs.map(l => l.weight));
+    const best = maxWeight > 0
+      ? maxWeight + " ק״ג"
+      : Math.max(...logs.map(l => l.reps.reduce((a, b) => a + b, 0))) + " חזרות";
 
     // כל שורה מקבלת כפתור מחיקה. החדשה ביותר מופיעה למעלה
     let logRows = "";
@@ -235,8 +262,14 @@ function renderHistory() {
       </tr>` + logRows;
     });
 
-    details += `<details>
+    details += `<details data-ex="${n}">
       <summary>${name}</summary>
+      <div class="progress-row">
+        <div class="progress-pill">מההתחלה<b class="${pctClass(fromStart)}">${pctText(fromStart)}</b></div>
+        <div class="progress-pill">מהפעם הקודמת<b class="${pctClass(fromPrev)}">${prev ? pctText(fromPrev) : "-"}</b></div>
+        <div class="progress-pill">שיא<b>${best}</b></div>
+      </div>
+      <canvas class="ex-chart"></canvas>
       <table>
         <tr><th>תאריך</th><th>ק״ג</th><th>חזרות</th><th>קושי</th><th></th></tr>
         ${logRows}
@@ -256,6 +289,54 @@ function renderHistory() {
     <h3>היסטוריה מלאה</h3>
     ${details}
   `;
+
+  // הגרף של כל תרגיל נבנה רק כשפותחים אותו
+  box.querySelectorAll("details[data-ex]").forEach(d => {
+    d.addEventListener("toggle", () => {
+      if (d.open && !d.dataset.drawn) {
+        d.dataset.drawn = "1";
+        drawExerciseChart(d.querySelector("canvas"), data.logs[names[d.dataset.ex]]);
+      }
+    });
+  });
+}
+
+// גרף התקדמות של תרגיל
+function drawExerciseChart(canvas, logs) {
+  const base = score(logs[0]);
+  const chart = new Chart(canvas, {
+    type: "line",
+    data: {
+      labels: logs.map(l => shortDate(l.date)),
+      datasets: [{
+        data: logs.map(l => score(l)),
+        borderColor: "#4ade80",
+        backgroundColor: "rgba(74, 222, 128, 0.15)",
+        fill: true,
+        tension: 0.3,
+        pointRadius: 4
+      }]
+    },
+    options: {
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            // בלחיצה על נקודה: משקל × חזרות + אחוז מההתחלה
+            label: ctx => {
+              const l = logs[ctx.dataIndex];
+              return logText(l) + " (" + pctText(pct(base, score(l))) + ")";
+            }
+          }
+        }
+      },
+      scales: {
+        x: { ticks: { color: "#9ca3af" } },
+        y: { ticks: { color: "#9ca3af" } }
+      }
+    }
+  });
+  historyCharts.push(chart);
 }
 
 // מחיקת רישום של תרגיל
@@ -1427,8 +1508,99 @@ function menuToDiary(mealIndex) {
 function alertMsg(text) {
   document.getElementById("menuMsg").textContent = text;
 }
+// ===== 22. טיימר מנוחה =====
+const REST_OPTIONS = [60, 90, 120, 180];   // אפשרויות בשניות
+let restEnd = 0;
+let restInterval = null;
+let audioCtx = null;
+
+function getRestSeconds() {
+  return Number(localStorage.getItem("fitness_rest")) || 90;
+}
+
+function timeText(sec) {
+  return Math.floor(sec / 60) + ":" + String(sec % 60).padStart(2, "0");
+}
+
+// כפתורי בחירת זמן המנוחה בלשונית האימון
+function renderRestPicker() {
+  const box = document.getElementById("restPicker");
+  box.innerHTML = "⏱️";
+  REST_OPTIONS.forEach(sec => {
+    const b = document.createElement("button");
+    b.className = "rest-btn" + (sec === getRestSeconds() ? " active" : "");
+    b.textContent = timeText(sec);
+    b.addEventListener("click", () => {
+      localStorage.setItem("fitness_rest", sec);
+      renderRestPicker();
+      startRest(sec);
+    });
+    box.appendChild(b);
+  });
+}
+
+// באייפון צריך "להפעיל" את הצליל בלחיצה של המשתמש
+function unlockAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === "suspended") audioCtx.resume();
+}
+
+// צפצוף: 3 ביפים
+function beep() {
+  if (!audioCtx) return;
+  [0, 0.4, 0.8].forEach(t => {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.frequency.value = 880;
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    const start = audioCtx.currentTime + t;
+    gain.gain.setValueAtTime(0.4, start);
+    gain.gain.exponentialRampToValueAtTime(0.001, start + 0.3);
+    osc.start(start);
+    osc.stop(start + 0.3);
+  });
+}
+
+function startRest(seconds) {
+  unlockAudio();
+  restEnd = Date.now() + seconds * 1000;
+  document.getElementById("restTimer").classList.add("show");
+  clearInterval(restInterval);
+  restInterval = setInterval(tickRest, 250);
+  tickRest();
+}
+
+function tickRest() {
+  const left = Math.max(0, Math.round((restEnd - Date.now()) / 1000));
+  document.getElementById("restTime").textContent = timeText(left);
+
+  if (left === 0) {
+    clearInterval(restInterval);
+    restInterval = null;
+    beep();
+    document.getElementById("restTime").textContent = "💪 סט הבא!";
+    setTimeout(() => {
+      if (!restInterval) document.getElementById("restTimer").classList.remove("show");
+    }, 4000);
+  }
+}
+
+// הוספה/הורדה של 15 שניות
+function addRest(sec) {
+  if (!restInterval) return;
+  restEnd += sec * 1000;
+  tickRest();
+}
+
+function stopRest() {
+  clearInterval(restInterval);
+  restInterval = null;
+  document.getElementById("restTimer").classList.remove("show");
+}
 // ===== 15. הפעלה כשהאפליקציה נפתחת =====
 renderUserSwitch();
 setupWorkoutTab();
 renderFoods();
+renderRestPicker();
 showTab("workout");
