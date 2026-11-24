@@ -929,17 +929,134 @@ document.getElementById("newFoodSave").addEventListener("click", () => {
     kcal: kcal,
     p: Number(document.getElementById("newP").value) || 0,
     c: Number(document.getElementById("newC").value) || 0,
-    f: Number(document.getElementById("newF").value) || 0
+    f: Number(document.getElementById("newF").value) || 0,
+    barcode: document.getElementById("newBarcode").value || null
   });
   localStorage.setItem("fitness_custom_foods", JSON.stringify(custom));
 
-  ["newFoodName", "newKcal", "newP", "newC", "newF"].forEach(id => {
+  ["newFoodName", "newKcal", "newP", "newC", "newF", "newBarcode"].forEach(id => {
     document.getElementById(id).value = "";
   });
   msg.textContent = "✅ נשמר! עכשיו אפשר לחפש אותו למעלה";
   showDiary();
   renderFoods();
+});// ===== 18. סריקת ברקוד =====
+let scanner = null;
+
+document.getElementById("scanBtn").addEventListener("click", () => {
+  if (scanner) {
+    stopScanner();
+  } else {
+    startScanner();
+  }
 });
+
+function startScanner() {
+  const msg = document.getElementById("scanMsg");
+  msg.textContent = "כוון את המצלמה לברקוד...";
+  document.getElementById("scanBtn").textContent = "✖ סגור מצלמה";
+
+  scanner = new Html5Qrcode("reader", {
+    formatsToSupport: [
+      Html5QrcodeSupportedFormats.EAN_13,
+      Html5QrcodeSupportedFormats.EAN_8,
+      Html5QrcodeSupportedFormats.UPC_A,
+      Html5QrcodeSupportedFormats.UPC_E
+    ]
+  });
+
+  scanner.start(
+    { facingMode: "environment" },          // המצלמה האחורית
+    { fps: 10, qrbox: { width: 250, height: 120 } },
+    code => {                               // נמצא ברקוד
+      stopScanner();
+      handleBarcode(code);
+    },
+    () => {}                                // עדיין מחפש - לא עושים כלום
+  ).catch(() => {
+    msg.textContent = "⚠️ אין גישה למצלמה. צריך לאשר גישה למצלמה";
+    scanner = null;
+    document.getElementById("scanBtn").textContent = "📷 סרוק ברקוד";
+  });
+}
+
+function stopScanner() {
+  if (scanner) {
+    const s = scanner;
+    scanner = null;
+    try {
+      s.stop().then(() => s.clear()).catch(() => {});
+    } catch (e) {}
+  }
+  document.getElementById("scanBtn").textContent = "📷 סרוק ברקוד";
+}
+
+function round1(x) {
+  return Math.round(Number(x) * 10) / 10;
+}
+
+// בוחר מזון בשדה החיפוש ועובר לשדה הגרמים
+function selectFood(name) {
+  document.getElementById("diaryFood").value = name;
+  previewFood();
+  document.getElementById("diaryGrams").focus();
+}
+
+async function handleBarcode(code) {
+  const msg = document.getElementById("scanMsg");
+
+  // 1. המוצר כבר שמור אצלנו?
+  const saved = loadCustomFoods().find(f => f.barcode === code);
+  if (saved) {
+    selectFood(saved.name);
+    msg.textContent = "✅ " + saved.name;
+    return;
+  }
+
+  // 2. חיפוש במאגר העולמי Open Food Facts
+  msg.textContent = "🔍 מחפש את המוצר...";
+  try {
+    const url = "https://world.openfoodfacts.org/api/v2/product/" + code +
+                ".json?fields=product_name,product_name_he,brands,nutriments";
+    const res = await fetch(url);
+    const json = await res.json();
+    const p = json.product;
+    const n = p && p.nutriments;
+
+    if (json.status === 1 && n && n["energy-kcal_100g"] !== undefined) {
+      let name = p.product_name_he || p.product_name || ("מוצר " + code);
+      if (p.brands) name += " - " + p.brands.split(",")[0];
+      if (findFood(name)) name += " (" + code.slice(-4) + ")";
+
+      const custom = loadCustomFoods();
+      custom.push({
+        name: name,
+        group: "custom",
+        kashrut: "parve",
+        barcode: code,
+        kcal: round1(n["energy-kcal_100g"]),
+        p: round1(n.proteins_100g || 0),
+        c: round1(n.carbohydrates_100g || 0),
+        f: round1(n.fat_100g || 0)
+      });
+      localStorage.setItem("fitness_custom_foods", JSON.stringify(custom));
+
+      showDiary();
+      renderFoods();
+      selectFood(name);
+      msg.textContent = "✅ נמצא: " + name + " – כדאי לבדוק שהערכים תואמים לתווית";
+      return;
+    }
+  } catch (e) {
+    // אין אינטרנט או שהמאגר לא זמין - ממשיכים להזנה ידנית
+  }
+
+  // 3. לא נמצא - פותחים הזנה ידנית עם הברקוד
+  msg.textContent = "😕 המוצר לא נמצא. הקלד את הערכים מהתווית פעם אחת, ובפעם הבאה הסריקה תזהה אותו";
+  document.getElementById("newBarcode").value = code;
+  document.getElementById("newFoodBox").open = true;
+  document.getElementById("newFoodName").focus();
+}
 // ===== 15. הפעלה כשהאפליקציה נפתחת =====
 renderUserSwitch();
 setupWorkoutTab();

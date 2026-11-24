@@ -321,3 +321,15 @@ body {
   border-top: 1px solid #333845;
   font-size: 14px;
 }
+/* סריקת ברקוד */
+.tab .scan-btn {
+  background: #1a1d24;
+  color: #4ade80;
+  border: 1px solid #4ade80;
+  margin-bottom: 10px;
+}
+#reader {
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 10px;
+}

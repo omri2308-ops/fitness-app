@@ -73,6 +73,9 @@
 
     <div class="add-box">
       <h3 class="sub">הוספת מזון</h3>
+            <button id="scanBtn" class="scan-btn">📷 סרוק ברקוד</button>
+      <div id="reader"></div>
+      <p class="msg" id="scanMsg"></p>
       <select id="diaryMeal"></select>
       <input type="text" id="diaryFood" list="foodNames" placeholder="חפש מזון (למשל: אורז)">
       <datalist id="foodNames"></datalist>
@@ -84,9 +87,10 @@
 
     <div id="diaryMeals"></div>
 
-    <details>
+        <details id="newFoodBox">
       <summary>➕ מזון חדש שלא ברשימה</summary>
       <input type="text" id="newFoodName" placeholder="שם המזון">
+            <input type="hidden" id="newBarcode">
       <p class="target">ערכים ל-100 גרם (מהתווית):</p>
       <div class="sets">
         <input type="number" id="newKcal" placeholder="קלוריות">
@@ -155,6 +159,7 @@
   </nav>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
