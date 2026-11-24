@@ -23,15 +23,15 @@
   <!-- לשונית 1: אימון -->
   <section id="workout" class="tab">
     <h2>אימון</h2>
-        <div id="restPicker" class="rest-picker"></div>
+    <div id="restPicker" class="rest-picker"></div>
 
-    <!-- תוכנית קבועה (עומרי) -->
+    <!-- עריכת תוכנית -->
+    <button id="editProgramBtn" class="edit-btn">✏️ עריכת תוכנית</button>
+    <div id="programEditor"></div>
+
+    <!-- תוכנית קבועה -->
     <div id="programWorkout">
-      <div class="workout-picker">
-        <button class="pick" data-workout="A">אימון A</button>
-        <button class="pick" data-workout="B">אימון B</button>
-        <button class="pick" data-workout="C">אימון C</button>
-      </div>
+      <div class="workout-picker" id="workoutPicker"></div>
       <div id="exerciseList"></div>
     </div>
 
@@ -65,6 +65,7 @@
     <canvas id="bodyChart"></canvas>
     <ul id="bodyHistory"></ul>
   </section>
+
   <!-- לשונית 5: יומן אכילה -->
   <section id="diary" class="tab">
     <h2>יומן אכילה</h2>
@@ -74,11 +75,11 @@
 
     <div class="add-box">
       <h3 class="sub">הוספת מזון</h3>
-            <button id="scanBtn" class="scan-btn">📷 סרוק ברקוד</button>
+      <button id="scanBtn" class="scan-btn">📷 סרוק ברקוד</button>
       <div id="reader"></div>
       <p class="msg" id="scanMsg"></p>
       <select id="diaryMeal"></select>
-            <div id="quickFoods"></div>
+      <div id="quickFoods"></div>
       <input type="text" id="diaryFood" list="foodNames" placeholder="חפש מזון (למשל: אורז)">
       <datalist id="foodNames"></datalist>
       <input type="number" id="diaryGrams" placeholder="כמות בגרמים">
@@ -89,10 +90,10 @@
 
     <div id="diaryMeals"></div>
 
-        <details id="newFoodBox">
+    <details id="newFoodBox">
       <summary>➕ מזון חדש שלא ברשימה</summary>
       <input type="text" id="newFoodName" placeholder="שם המזון">
-            <input type="hidden" id="newBarcode">
+      <input type="hidden" id="newBarcode">
       <p class="target">ערכים ל-100 גרם (מהתווית):</p>
       <div class="sets">
         <input type="number" id="newKcal" placeholder="קלוריות">
@@ -104,6 +105,7 @@
       <p class="msg" id="newFoodMsg"></p>
     </details>
   </section>
+
   <!-- לשונית 3: תזונה -->
   <section id="nutrition" class="tab">
     <h2>תזונה</h2>
@@ -141,12 +143,14 @@
 
     <button id="calcBtn">חשב</button>
     <div id="calResult"></div>
-        <h3 class="sub">🍽️ תפריט גמיש</h3>
+
+    <h3 class="sub">🍽️ תפריט גמיש</h3>
     <p class="target">🔄 מחליף מאכל · 🥛/🥩 מחליף ארוחה חלבית/בשרית</p>
     <button id="newMenuBtn">🎲 תפריט חדש</button>
     <p class="msg" id="menuMsg"></p>
     <div id="menuBox"></div>
-        <h3 class="sub">מאגר מזונות ל-100 גרם</h3>
+
+    <h3 class="sub">מאגר מזונות (ל-100 גרם)</h3>
     <div id="foodList"></div>
   </section>
 
@@ -154,7 +158,8 @@
   <section id="history" class="tab">
     <h2>היסטוריה והתקדמות</h2>
     <div id="historyContent"></div>
-        <div class="result-box backup-box">
+
+    <div class="result-box backup-box">
       <h3 class="sub">💾 גיבוי ושחזור</h3>
       <p class="target">הגיבוי כולל את הנתונים של כל המשתמשים</p>
       <button id="backupBtn">שמור גיבוי</button>
@@ -165,7 +170,8 @@
       <p class="msg" id="backupMsg"></p>
     </div>
   </section>
-    <!-- טיימר מנוחה -->
+
+  <!-- טיימר מנוחה -->
   <div id="restTimer" class="rest-timer">
     <span>⏱️ מנוחה</span>
     <b id="restTime">1:30</b>
@@ -179,12 +185,12 @@
     <button data-tab="workout">🏋️ אימון</button>
     <button data-tab="history">📊 היסטוריה</button>
     <button data-tab="body">⚖️ משקל</button>
-        <button data-tab="diary">📒 יומן</button>
+    <button data-tab="diary">📒 יומן</button>
     <button data-tab="nutrition">🍽️ תזונה</button>
   </nav>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
