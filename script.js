@@ -8,10 +8,10 @@ const USERS = {
 let USER = localStorage.getItem("currentUser") || "omri";
 let currentTab = "workout";
 
-// ===== 2. רשימת התרגילים =====
+// ===== 2. רשימת התרגילים (ברירת המחדל של עומרי) =====
 // min = מינימום חזרות, max = מקסימום חזרות, step = בכמה ק״ג להעלות
 // null = אין מספר קבוע (כמה שיותר)
-const exercises = {
+const DEFAULT_EXERCISES = {
   "מתח רחב":                  { min: null, max: 12, step: 2.5 },
   "מתח צר":                   { min: 10, max: 12, step: 2.5 },
   "חתירה בעמידה":             { min: 8,  max: 10, step: 2 },
@@ -32,8 +32,8 @@ const exercises = {
   "משקולת מאחורי הראש":       { min: 10, max: 12, step: 1 }
 };
 
-// ===== 3. התוכנית: אילו תרגילים בכל אימון =====
-const program = {
+// ===== 3. התוכנית (ברירת המחדל של עומרי) =====
+const DEFAULT_PROGRAM = {
   A: ["מתח רחב", "לחיצת חזה בשיפוע נייטרלי", "חתירה בעמידה", "פרפר בשיפוע נייטרלי",
       "לאנצים (לכל רגל)", "לחיצת כתף", "הרחקה לצדדים", "תאומים במדרגה",
       "כפיפת מרפקים", "לחיצה צרפתית"],
@@ -52,6 +52,26 @@ function loadData() {
 
 function saveData(data) {
   localStorage.setItem("fitness_" + USER, JSON.stringify(data));
+}
+
+// התוכנית של המשתמש: אם נערכה - מהזיכרון, אחרת ברירת המחדל
+function getProgram() {
+  const data = loadData();
+  if (data.program) return data.program;
+  return USER === "omri" ? JSON.parse(JSON.stringify(DEFAULT_PROGRAM)) : {};
+}
+
+function getExercises() {
+  const data = loadData();
+  if (data.exercises) return data.exercises;
+  return USER === "omri" ? JSON.parse(JSON.stringify(DEFAULT_EXERCISES)) : {};
+}
+
+function saveProgram(program, exList) {
+  const data = loadData();
+  data.program = program;
+  data.exercises = exList;
+  saveData(data);
 }
 
 function getLastLog(name) {
@@ -99,8 +119,11 @@ function renderWorkout(letter) {
   const list = document.getElementById("exerciseList");
   list.innerHTML = "";
 
-  program[letter].forEach((name, i) => {
-    const ex = exercises[name];
+  const program = getProgram();
+  const exList = getExercises();
+
+  (program[letter] || []).forEach((name, i) => {
+    const ex = exList[name] || { min: null, max: null, step: 2 };
     const last = getLastLog(name);
 
     const card = document.createElement("div");
@@ -140,7 +163,7 @@ function addLog(name, weight, reps, difficulty) {
 }
 
 function saveExercise(letter, i) {
-  const name = program[letter][i];
+  const name = getProgram()[letter][i];
   const weight = Number(document.getElementById("w" + i).value) || 0;
   const reps = [0, 1, 2].map(s => Number(document.getElementById("r" + i + "-" + s).value) || 0);
   const difficulty = Number(document.getElementById("d" + i).value) || 0;
@@ -174,14 +197,24 @@ document.querySelectorAll(".menu button").forEach(b => {
   b.addEventListener("click", () => showTab(b.dataset.tab));
 });
 
-// ===== 9. בחירת אימון A / B / C =====
-document.querySelectorAll(".pick").forEach(b => {
-  b.addEventListener("click", () => {
-    document.querySelectorAll(".pick").forEach(p => p.classList.remove("active"));
-    b.classList.add("active");
-    renderWorkout(b.dataset.workout);
+// ===== 9. בחירת אימון (A / B / C ...) =====
+let currentWorkout = null;
+
+function renderPicker() {
+  const box = document.getElementById("workoutPicker");
+  box.innerHTML = "";
+  Object.keys(getProgram()).forEach(letter => {
+    const b = document.createElement("button");
+    b.className = "pick" + (letter === currentWorkout ? " active" : "");
+    b.textContent = "אימון " + letter;
+    b.addEventListener("click", () => {
+      currentWorkout = letter;
+      renderPicker();
+      renderWorkout(letter);
+    });
+    box.appendChild(b);
   });
-});
+}
 
 // ===== 10. היסטוריה והתקדמות =====
 let historyCharts = [];   // הגרפים שמוצגים כרגע
@@ -682,13 +715,16 @@ function renderUserSwitch() {
   });
 }
 
-// לעומרי יש תוכנית קבועה, לשאר - אימון חופשי
+// מי שיש לו תוכנית - רואה אותה. מי שאין - אימון חופשי
 function setupWorkoutTab() {
-  const hasProgram = (USER === "omri");
+  const hasProgram = Object.keys(getProgram()).length > 0;
   document.getElementById("programWorkout").style.display = hasProgram ? "block" : "none";
   document.getElementById("freeWorkout").style.display = hasProgram ? "none" : "block";
   document.getElementById("exerciseList").innerHTML = "";
-  document.querySelectorAll(".pick").forEach(p => p.classList.remove("active"));
+  document.getElementById("editProgramBtn").textContent = hasProgram ? "✏️ עריכת תוכנית" : "✏️ בניית תוכנית קבועה";
+  currentWorkout = null;
+  renderPicker();
+  closeEditor();
   if (!hasProgram) renderFreeWorkout();
 }
 
@@ -1598,6 +1634,184 @@ function stopRest() {
   restInterval = null;
   document.getElementById("restTimer").classList.remove("show");
 }
+
+// ===== 23. עריכת התוכנית מתוך האפליקציה =====
+let editWorkout = null;
+let editorOpen = false;
+
+document.getElementById("editProgramBtn").addEventListener("click", () => {
+  if (editorOpen) {
+    setupWorkoutTab();   // סוגר את העריכה ומרענן את האימונים
+  } else {
+    openEditor();
+  }
+});
+
+function openEditor() {
+  editorOpen = true;
+  editWorkout = Object.keys(getProgram())[0] || null;
+  document.getElementById("editProgramBtn").textContent = "✅ סיום עריכה";
+  renderEditor();
+}
+
+function closeEditor() {
+  editorOpen = false;
+  document.getElementById("programEditor").innerHTML = "";
+}
+
+function renderEditor() {
+  const box = document.getElementById("programEditor");
+  const program = getProgram();
+  const exList = getExercises();
+
+  // לשוניות האימונים + כפתור אימון חדש
+  let tabs = "";
+  Object.keys(program).forEach(k => {
+    tabs += `<button class="pick ${k === editWorkout ? "active" : ""}" onclick="selectEditWorkout('${k}')">${k}</button>`;
+  });
+  tabs += `<button class="pick" onclick="addWorkout()">➕ אימון</button>`;
+
+  // רשימת התרגילים באימון שנבחר
+  let list = "";
+  if (editWorkout) {
+    program[editWorkout].forEach((name, i) => {
+      list += `<li>
+        <span><b>${i + 1}. ${name}</b><br><small class="target">${targetText(exList[name] || {})}</small></span>
+        <span>
+          <button class="del" onclick="moveExercise(${i}, -1)">⬆️</button>
+          <button class="del" onclick="moveExercise(${i}, 1)">⬇️</button>
+          <button class="del" onclick="removeExercise(${i})">🗑</button>
+        </span>
+      </li>`;
+    });
+  }
+
+  let options = "";
+  Object.keys(exList).forEach(n => options += `<option value="${n}">`);
+
+  const reset = USER === "omri"
+    ? `<button class="danger" onclick="resetProgram()">↩️ חזרה לתוכנית המקורית</button>`
+    : "";
+
+  if (!editWorkout) {
+    box.innerHTML = `<div class="workout-picker">${tabs}</div>
+      <p class="target">לחץ ➕ אימון כדי ליצור אימון ראשון</p>${reset}`;
+    return;
+  }
+
+  box.innerHTML = `
+    <div class="workout-picker">${tabs}</div>
+    <ul class="edit-list">${list || "<li class='target'>אין עדיין תרגילים באימון הזה</li>"}</ul>
+
+    <h3 class="sub">➕ הוספת תרגיל לאימון ${editWorkout}</h3>
+    <input type="text" id="newExName" list="exNames" placeholder="שם התרגיל">
+    <datalist id="exNames">${options}</datalist>
+    <div class="sets">
+      <input type="number" id="newExMin" placeholder="מינ׳ חזרות">
+      <input type="number" id="newExMax" placeholder="מקס׳ חזרות">
+      <input type="number" id="newExStep" step="0.5" placeholder="עלייה בק״ג">
+    </div>
+    <p class="target">מינימום ריק = "כמה שיותר עד היעד". שניהם ריקים = מקסימום חזרות בלי יעד.<br>
+    בחירת תרגיל קיים מהרשימה ממלאת את הנתונים שלו, ואפשר לשנות אותם.</p>
+    <button onclick="addExercise()">שמור תרגיל באימון</button>
+    <p class="msg" id="editMsg"></p>
+
+    <button class="danger" onclick="deleteWorkout()">🗑 מחק את אימון ${editWorkout}</button>
+    ${reset}
+  `;
+
+  // בחירת תרגיל קיים - ממלאים את הנתונים שלו
+  document.getElementById("newExName").addEventListener("input", () => {
+    const ex = exList[document.getElementById("newExName").value.trim()];
+    if (!ex) return;
+    document.getElementById("newExMin").value = ex.min || "";
+    document.getElementById("newExMax").value = ex.max || "";
+    document.getElementById("newExStep").value = ex.step || "";
+  });
+}
+
+function selectEditWorkout(k) {
+  editWorkout = k;
+  renderEditor();
+}
+
+function addWorkout() {
+  const program = getProgram();
+  const exList = getExercises();
+  const next = "ABCDEFGH".split("").find(l => !program[l]);
+  if (!next) return;
+  program[next] = [];
+  saveProgram(program, exList);
+  editWorkout = next;
+  renderEditor();
+}
+
+function deleteWorkout() {
+  if (!confirm("למחוק את אימון " + editWorkout + "? (ההיסטוריה של התרגילים נשמרת)")) return;
+  const program = getProgram();
+  const exList = getExercises();
+  delete program[editWorkout];
+  saveProgram(program, exList);
+  editWorkout = Object.keys(program)[0] || null;
+  renderEditor();
+}
+
+function moveExercise(i, dir) {
+  const program = getProgram();
+  const exList = getExercises();
+  const list = program[editWorkout];
+  const j = i + dir;
+  if (j < 0 || j >= list.length) return;
+  const temp = list[i];
+  list[i] = list[j];
+  list[j] = temp;
+  saveProgram(program, exList);
+  renderEditor();
+}
+
+function removeExercise(i) {
+  const program = getProgram();
+  const exList = getExercises();
+  program[editWorkout].splice(i, 1);
+  saveProgram(program, exList);
+  renderEditor();
+}
+
+function addExercise() {
+  const name = document.getElementById("newExName").value.trim();
+  const min = Number(document.getElementById("newExMin").value) || null;
+  const max = Number(document.getElementById("newExMax").value) || null;
+  const step = Number(document.getElementById("newExStep").value) || 2;
+  const msg = document.getElementById("editMsg");
+
+  if (!name) {
+    msg.textContent = "⚠️ צריך לכתוב שם תרגיל";
+    return;
+  }
+  if (min && max && min > max) {
+    msg.textContent = "⚠️ המינימום גדול מהמקסימום";
+    return;
+  }
+
+  const program = getProgram();
+  const exList = getExercises();
+  exList[name] = { min: min, max: max, step: step };
+  if (!program[editWorkout].includes(name)) program[editWorkout].push(name);
+  saveProgram(program, exList);
+  renderEditor();
+  document.getElementById("editMsg").textContent = "✅ " + name + " נשמר באימון " + editWorkout;
+}
+
+function resetProgram() {
+  if (!confirm("לחזור לתוכנית המקורית? השינויים בתוכנית יימחקו (ההיסטוריה נשמרת)")) return;
+  const data = loadData();
+  delete data.program;
+  delete data.exercises;
+  saveData(data);
+  editWorkout = Object.keys(getProgram())[0];
+  renderEditor();
+}
+
 // ===== 15. הפעלה כשהאפליקציה נפתחת =====
 renderUserSwitch();
 setupWorkoutTab();

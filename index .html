@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="אימונים">
+  <meta name="theme-color" content="#0f1115">
+  <link rel="apple-touch-icon" href="icon.png">
+  <link rel="manifest" href="manifest.json">
+  <title>מעקב אימונים</title>
+  <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <h1>מעקב אימונים 💪</h1>
+
+  <!-- בחירת משתמש -->
+  <div id="userSwitch" class="user-switch"></div>
+
+  <!-- לשונית 1: אימון -->
+  <section id="workout" class="tab">
+    <h2>אימון</h2>
+    <div id="restPicker" class="rest-picker"></div>
+
+    <!-- עריכת תוכנית -->
+    <button id="editProgramBtn" class="edit-btn">✏️ עריכת תוכנית</button>
+    <div id="programEditor"></div>
+
+    <!-- תוכנית קבועה -->
+    <div id="programWorkout">
+      <div class="workout-picker" id="workoutPicker"></div>
+      <div id="exerciseList"></div>
+    </div>
+
+    <!-- אימון חופשי (מזינים כל תרגיל ידנית) -->
+    <div id="freeWorkout">
+      <input type="text" id="freeName" list="freeNames" placeholder="שם התרגיל">
+      <datalist id="freeNames"></datalist>
+      <p class="tip" id="freeTip"></p>
+      <div class="sets">
+        <input type="number" id="freeW" placeholder="ק״ג">
+        <input type="number" id="freeR0" placeholder="סט 1">
+        <input type="number" id="freeR1" placeholder="סט 2">
+        <input type="number" id="freeR2" placeholder="סט 3">
+      </div>
+      <input type="number" id="freeD" min="1" max="10" placeholder="רמת קושי 1-10">
+      <button id="freeSave">שמור תרגיל</button>
+      <p class="msg" id="freeMsg"></p>
+      <h3>היום</h3>
+      <ul id="freeToday"></ul>
+    </div>
+  </section>
+
+  <!-- לשונית 2: משקל גוף -->
+  <section id="body" class="tab">
+    <h2>משקל גוף</h2>
+    <input type="date" id="bodyDate">
+    <input type="number" id="bodyWeight" step="0.1" placeholder="משקל (ק״ג)">
+    <button id="saveBody">שמור</button>
+    <p class="msg" id="bodyMsg"></p>
+    <div id="bodyStats"></div>
+    <canvas id="bodyChart"></canvas>
+    <ul id="bodyHistory"></ul>
+  </section>
+
+  <!-- לשונית 5: יומן אכילה -->
+  <section id="diary" class="tab">
+    <h2>יומן אכילה</h2>
+    <input type="date" id="diaryDate">
+    <label class="check"><input type="checkbox" id="cheatDay"> 🍔 יום צ׳יט (לא נספר)</label>
+    <div id="diaryBars"></div>
+
+    <div class="add-box">
+      <h3 class="sub">הוספת מזון</h3>
+      <button id="scanBtn" class="scan-btn">📷 סרוק ברקוד</button>
+      <div id="reader"></div>
+      <p class="msg" id="scanMsg"></p>
+      <select id="diaryMeal"></select>
+      <div id="quickFoods"></div>
+      <input type="text" id="diaryFood" list="foodNames" placeholder="חפש מזון (למשל: אורז)">
+      <datalist id="foodNames"></datalist>
+      <input type="number" id="diaryGrams" placeholder="כמות בגרמים">
+      <p class="tip" id="diaryPreview"></p>
+      <button id="diaryAdd">הוסף ליומן</button>
+      <p class="msg" id="diaryMsg"></p>
+    </div>
+
+    <div id="diaryMeals"></div>
+
+    <details id="newFoodBox">
+      <summary>➕ מזון חדש שלא ברשימה</summary>
+      <input type="text" id="newFoodName" placeholder="שם המזון">
+      <input type="hidden" id="newBarcode">
+      <p class="target">ערכים ל-100 גרם (מהתווית):</p>
+      <div class="sets">
+        <input type="number" id="newKcal" placeholder="קלוריות">
+        <input type="number" id="newP" placeholder="חלבון">
+        <input type="number" id="newC" placeholder="פחמימה">
+        <input type="number" id="newF" placeholder="שומן">
+      </div>
+      <button id="newFoodSave">שמור מזון</button>
+      <p class="msg" id="newFoodMsg"></p>
+    </details>
+  </section>
+
+  <!-- לשונית 3: תזונה -->
+  <section id="nutrition" class="tab">
+    <h2>תזונה</h2>
+    <p class="target">שאלון קצר – התשובות נשמרות</p>
+
+    <label>מין</label>
+    <select id="sex">
+      <option value="male">גבר</option>
+      <option value="female">אישה</option>
+    </select>
+
+    <label>גיל</label>
+    <input type="number" id="age">
+
+    <label>גובה (ס״מ)</label>
+    <input type="number" id="height">
+
+    <label>משקל (ק״ג)</label>
+    <input type="number" id="nWeight" step="0.1">
+
+    <label>רמת פעילות</label>
+    <select id="activity">
+      <option value="1.2">יושבני – כמעט בלי פעילות</option>
+      <option value="1.375">קל – 1-3 אימונים בשבוע</option>
+      <option value="1.55" selected>בינוני – 3-5 אימונים בשבוע</option>
+      <option value="1.725">גבוה – 6-7 אימונים בשבוע</option>
+      <option value="1.9">גבוה מאוד – עבודה פיזית + אימונים</option>
+    </select>
+
+    <label>תהליך</label>
+    <select id="goal">
+      <option value="bulk">מסה</option>
+      <option value="cut">חיטוב</option>
+    </select>
+
+    <button id="calcBtn">חשב</button>
+    <div id="calResult"></div>
+
+    <h3 class="sub">🍽️ תפריט גמיש</h3>
+    <p class="target">🔄 מחליף מאכל · 🥛/🥩 מחליף ארוחה חלבית/בשרית</p>
+    <button id="newMenuBtn">🎲 תפריט חדש</button>
+    <p class="msg" id="menuMsg"></p>
+    <div id="menuBox"></div>
+
+    <h3 class="sub">מאגר מזונות (ל-100 גרם)</h3>
+    <div id="foodList"></div>
+  </section>
+
+  <!-- לשונית 4: היסטוריה -->
+  <section id="history" class="tab">
+    <h2>היסטוריה והתקדמות</h2>
+    <div id="historyContent"></div>
+
+    <div class="result-box backup-box">
+      <h3 class="sub">💾 גיבוי ושחזור</h3>
+      <p class="target">הגיבוי כולל את הנתונים של כל המשתמשים</p>
+      <button id="backupBtn">שמור גיבוי</button>
+      <label class="restore-btn">
+        שחזר מגיבוי
+        <input type="file" id="restoreFile" hidden>
+      </label>
+      <p class="msg" id="backupMsg"></p>
+    </div>
+  </section>
+
+  <!-- טיימר מנוחה -->
+  <div id="restTimer" class="rest-timer">
+    <span>⏱️ מנוחה</span>
+    <b id="restTime">1:30</b>
+    <button onclick="addRest(-15)">−15</button>
+    <button onclick="addRest(15)">+15</button>
+    <button onclick="stopRest()">✖</button>
+  </div>
+
+  <!-- תפריט תחתון -->
+  <nav class="menu">
+    <button data-tab="workout">🏋️ אימון</button>
+    <button data-tab="history">📊 היסטוריה</button>
+    <button data-tab="body">⚖️ משקל</button>
+    <button data-tab="diary">📒 יומן</button>
+    <button data-tab="nutrition">🍽️ תזונה</button>
+  </nav>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
