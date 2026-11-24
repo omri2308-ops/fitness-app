@@ -1057,6 +1057,63 @@ async function handleBarcode(code) {
   document.getElementById("newFoodBox").open = true;
   document.getElementById("newFoodName").focus();
 }
+// ===== 19. גיבוי ושחזור =====
+document.getElementById("backupBtn").addEventListener("click", async () => {
+  // אוספים את כל הנתונים של האפליקציה (של כל המשתמשים)
+  const backup = {};
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key.startsWith("fitness_")) backup[key] = localStorage.getItem(key);
+  }
+
+  const fileName = "fitness-backup-" + todayISO() + ".json";
+  const file = new File([JSON.stringify(backup)], fileName, { type: "application/json" });
+  const msg = document.getElementById("backupMsg");
+
+  // באייפון: נפתח חלון שיתוף (שמירה בקבצים, וואטסאפ, מייל...)
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title: "גיבוי מעקב אימונים" });
+      msg.textContent = "✅ הגיבוי נשמר";
+    } catch (e) {
+      msg.textContent = "";   // סגרת את החלון בלי לשמור
+    }
+    return;
+  }
+
+  // במחשב: הורדה רגילה
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(file);
+  link.download = fileName;
+  link.click();
+  msg.textContent = "✅ הגיבוי ירד לתיקיית ההורדות";
+});
+
+document.getElementById("restoreFile").addEventListener("change", e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const msg = document.getElementById("backupMsg");
+  const reader = new FileReader();
+
+  reader.onload = () => {
+    try {
+      const backup = JSON.parse(reader.result);
+      const keys = Object.keys(backup).filter(k => k.startsWith("fitness_"));
+      if (keys.length === 0) {
+        msg.textContent = "⚠️ זה לא קובץ גיבוי של האפליקציה";
+        return;
+      }
+      if (!confirm("השחזור יחליף את הנתונים שיש עכשיו במכשיר. להמשיך?")) return;
+      keys.forEach(k => localStorage.setItem(k, backup[k]));
+      location.reload();   // טוענים מחדש עם הנתונים המשוחזרים
+    } catch (err) {
+      msg.textContent = "⚠️ לא הצלחתי לקרוא את הקובץ";
+    }
+  };
+
+  reader.readAsText(file);
+  e.target.value = "";
+});
 // ===== 15. הפעלה כשהאפליקציה נפתחת =====
 renderUserSwitch();
 setupWorkoutTab();

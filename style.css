@@ -333,3 +333,17 @@ body {
   overflow: hidden;
   margin-bottom: 10px;
 }
+/* גיבוי ושחזור */
+.backup-box { margin-top: 24px; }
+.restore-btn {
+  display: block;
+  text-align: center;
+  padding: 14px;
+  margin-top: 8px;
+  border: 1px solid #4ade80;
+  border-radius: 12px;
+  color: #4ade80;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
