@@ -74,32 +74,64 @@ function saveProgram(program, exList) {
   saveData(data);
 }
 
-function getLastLog(name) {
-  const logs = loadData().logs[name];
-  return logs ? logs[logs.length - 1] : null;
+// התאריך של היום כמו שהוא נשמר ברישומים (26.11.2026)
+function todayHe() {
+  return new Date().toLocaleDateString("he-IL");
 }
 
-// ===== 5. ההמלצה לאימון הבא =====
+function getLogs(name) {
+  return loadData().logs[name] || [];
+}
+
+// הפעם האחרונה שעשית את התרגיל - לפני היום
+function getLastLog(name) {
+  const logs = getLogs(name).filter(l => l.date !== todayHe());
+  return logs.length ? logs[logs.length - 1] : null;
+}
+
+// מה שכבר נשמר היום (אם יש)
+function getTodayLog(name) {
+  return getLogs(name).find(l => l.date === todayHe()) || null;
+}
+
+// ===== 5. היעד לאימון של היום =====
+// מחשב כמה לעשות היום לפי הפעם הקודמת
+function nextTarget(ex, last) {
+  if (!last) return null;
+  const best = Math.max(...last.reps);
+
+  // הגעת למקסימום בכל הסטים - עולים במשקל וחוזרים למינימום
+  if (ex.max && last.reps.every(r => r >= ex.max)) {
+    return { weight: last.weight + ex.step, reps: [0, 1, 2].map(() => ex.min || "מקס׳"), up: true };
+  }
+  // היה קשה מאוד - חוזרים על אותו דבר
+  if (last.difficulty >= 10) {
+    return { weight: last.weight, reps: last.reps.map(r => r || best), same: true };
+  }
+  // מוסיפים חזרה אחת לכל סט (עד המקסימום)
+  return {
+    weight: last.weight,
+    reps: last.reps.map(r => {
+      const next = (r || best) + 1;
+      return ex.max ? Math.min(next, ex.max) : next;
+    })
+  };
+}
+
 function recommendation(ex, last) {
   if (!last) {
-    if (ex.min) return "פעם ראשונה: התחל ב-" + ex.min + " חזרות בכל סט";
-    return "פעם ראשונה: עשה כמה שיותר חזרות בכל סט";
+    if (ex.min) return "🎯 פעם ראשונה: התחל ב-" + ex.min + " חזרות בכל סט";
+    return "🎯 פעם ראשונה: כמה שיותר חזרות בכל סט";
   }
+  const t = nextTarget(ex, last);
+  const w = t.weight > 0 ? t.weight + " ק״ג × " : "";
 
-  const lastText = "בפעם הקודמת: " + last.weight + " ק״ג × " + last.reps.join(" / ");
-  const total = last.reps.reduce((a, b) => a + b, 0);
-
-  if (!ex.max) {
-    return lastText + "<br>🎯 נסה לעבור " + total + " חזרות בסך הכול";
-  }
-  if (last.reps.every(r => r >= ex.max)) {
-    return lastText + "<br>🔥 הגעת למקסימום! עלה ל-" + (last.weight + ex.step) +
-           " ק״ג והתחל שוב מ-" + (ex.min || "כמה שיותר") + " חזרות";
-  }
-  if (last.difficulty >= 10) {
-    return lastText + "<br>😮‍💨 היה קשה מאוד – חזור על אותו משקל ואותן חזרות";
-  }
-  return lastText + "<br>⬆️ אותו משקל, נסה להוסיף חזרה בכל סט (עד " + ex.max + ")";
+  let text = "📋 פעם קודמת (" + last.date + "): " + logText(last) +
+             (last.difficulty ? " · קושי " + last.difficulty : "");
+  text += "<br><b>🎯 היום: " + w + t.reps.join(" / ") + "</b>";
+  if (t.up) text += " 🔥 עולים במשקל!";
+  if (t.same) text += " (היה קשה – חוזרים על אותו דבר)";
+  return text;
 }
 
 function targetText(ex) {
@@ -110,8 +142,7 @@ function targetText(ex) {
 
 function suggestedWeight(ex, last) {
   if (!last) return "";
-  if (ex.max && last.reps.every(r => r >= ex.max)) return last.weight + ex.step;
-  return last.weight;
+  return nextTarget(ex, last).weight;
 }
 
 // ===== 6. הצגת התרגילים של אימון =====
@@ -126,6 +157,11 @@ function renderWorkout(letter) {
     const ex = exList[name] || { min: null, max: null, step: 2 };
     const last = getLastLog(name);
 
+    const today = getTodayLog(name);       // אם כבר שמרת היום - הנתונים חוזרים לשדות
+    const t = nextTarget(ex, last);         // היעד להיום
+    const repValue = s => today ? (today.reps[s] || "") : "";
+    const repHint = s => (t && typeof t.reps[s] === "number") ? "יעד " + t.reps[s] : "סט " + (s + 1);
+
     const card = document.createElement("div");
     card.className = "exercise-card";
     card.innerHTML = `
@@ -133,12 +169,12 @@ function renderWorkout(letter) {
       <p class="target">${targetText(ex)}</p>
       <p class="tip">${recommendation(ex, last)}</p>
       <div class="sets">
-        <input type="number" id="w${i}" placeholder="ק״ג" value="${suggestedWeight(ex, last)}">
-        <input type="number" id="r${i}-0" placeholder="סט 1">
-        <input type="number" id="r${i}-1" placeholder="סט 2">
-        <input type="number" id="r${i}-2" placeholder="סט 3">
+        <input type="number" id="w${i}" placeholder="ק״ג" value="${today ? today.weight : suggestedWeight(ex, last)}">
+        <input type="number" id="r${i}-0" placeholder="${repHint(0)}" value="${repValue(0)}">
+        <input type="number" id="r${i}-1" placeholder="${repHint(1)}" value="${repValue(1)}">
+        <input type="number" id="r${i}-2" placeholder="${repHint(2)}" value="${repValue(2)}">
       </div>
-      <input type="number" id="d${i}" min="1" max="10" placeholder="רמת קושי 1-10">
+      <input type="number" id="d${i}" min="1" max="10" placeholder="רמת קושי 1-10" value="${today && today.difficulty ? today.difficulty : ""}">
       <button onclick="saveExercise('${letter}', ${i})">שמור תרגיל</button>
       <p class="msg" id="m${i}"></p>
     `;
@@ -148,18 +184,41 @@ function renderWorkout(letter) {
 
 // ===== 7. שמירת תרגיל =====
 // שמירת רישום אחד (משמש גם את התוכנית של עומרי וגם את האימון החופשי)
+// אם כבר שמרת את התרגיל היום - הרישום מתעדכן (לא נוצרת שורה חדשה)
 function addLog(name, weight, reps, difficulty) {
   const data = loadData();
   if (!data.logs[name]) data.logs[name] = [];
-  data.logs[name].push({
-    date: new Date().toLocaleDateString("he-IL"),
+  const logs = data.logs[name];
+  const entry = {
+    date: todayHe(),
     time: Date.now(),
     weight: weight,
     reps: reps,
     difficulty: difficulty
-  });
+  };
+
+  if (logs.length && logs[logs.length - 1].date === entry.date) {
+    logs[logs.length - 1] = entry;   // מעדכנים את הרישום של היום
+  } else {
+    logs.push(entry);                // יום חדש - רישום חדש
+  }
   saveData(data);
-    startRest(getRestSeconds());   // מפעיל את טיימר המנוחה
+  startRest(getRestSeconds());   // מפעיל את טיימר המנוחה
+}
+
+// ניקוי: אם יש כמה רישומים באותו יום - נשאר רק האחרון
+function cleanDuplicates() {
+  Object.keys(USERS).forEach(u => {
+    const key = "fitness_" + u;
+    const data = JSON.parse(localStorage.getItem(key));
+    if (!data || !data.logs) return;
+    Object.keys(data.logs).forEach(name => {
+      const byDate = {};
+      data.logs[name].forEach(l => byDate[l.date] = l);
+      data.logs[name] = Object.values(byDate);
+    });
+    localStorage.setItem(key, JSON.stringify(data));
+  });
 }
 
 function saveExercise(letter, i) {
@@ -1573,7 +1632,13 @@ function renderRestPicker() {
     });
     box.appendChild(b);
   });
+  document.getElementById("quickTimer").textContent = "⏱️ " + timeText(getRestSeconds());
 }
+
+// כפתור טיימר קבוע (בפינה) - מפעיל לפי הזמן שנבחר
+document.getElementById("quickTimer").addEventListener("click", () => {
+  startRest(getRestSeconds());
+});
 
 // באייפון צריך "להפעיל" את הצליל בלחיצה של המשתמש
 function unlockAudio() {
@@ -1624,8 +1689,11 @@ function tickRest() {
 
 // הוספה/הורדה של 15 שניות
 function addRest(sec) {
-  if (!restInterval) return;
-  restEnd += sec * 1000;
+  if (!restInterval) {
+    if (sec > 0) startRest(sec);   // הטיימר נגמר? +15 מתחיל אותו מחדש
+    return;
+  }
+  restEnd = Math.max(Date.now(), restEnd + sec * 1000);
   tickRest();
 }
 
@@ -1813,6 +1881,7 @@ function resetProgram() {
 }
 
 // ===== 15. הפעלה כשהאפליקציה נפתחת =====
+cleanDuplicates();
 renderUserSwitch();
 setupWorkoutTab();
 renderFoods();
