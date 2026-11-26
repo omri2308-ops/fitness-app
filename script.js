@@ -45,6 +45,48 @@ const DEFAULT_PROGRAM = {
       "כפיפת מרפקים", "לחיצה צרפתית"]
 };
 
+// ===== 3ב. התוכנית של איליי =====
+// group = קבוצת שרירים (להחלפת תרגילים), sets = מספר סטים, unit: "sec" = שניות
+// start = משקל התחלתי, note = הערה שמופיעה ליד התרגיל
+const ILAY_EXERCISES = {
+  "היפטרסט בסמית משין":           { group: "ישבן ורגליים", min: 8,  max: 10, step: 2.5,  start: 15,   note: "משקל לכל צד" },
+  "הרחקת ירכיים במכונה":          { group: "ישבן ורגליים", min: 12, max: 15, step: 2.5,  start: 57.5 },
+  "לחיצת רגליים":                 { group: "ישבן ורגליים", min: 8,  max: 10, step: 2.5,  start: 20,   note: "משקל לכל צד" },
+  "פשיטות גב בכיסא רומי":         { group: "ישבן ורגליים", min: 10, max: 12, step: 2.5,  start: 10,   note: "משקל בידיים" },
+  "פשיטת מרפקים עם כבל בעמידה":   { group: "יד אחורית",    min: 10, max: 12, step: 1.25, start: 8.75 },
+  "פשיטת מרפק מעל הראש":          { group: "יד אחורית",    min: 10, max: 12, step: 1,    start: 4 },
+  "פולדאון בסופינציה":            { group: "גב",           min: 10, max: 12, step: 2.5,  start: 27.5 },
+  "פולדאון רחב / משולש צר":       { group: "גב",           min: 8,  max: 10, step: 2.5,  start: 27.5 },
+  "חתירה בהישענות במכונה":        { group: "גב",           min: 9,  max: 11, step: 2.5,  start: 25 },
+  "פרפר הפוך":                    { group: "כתף אחורית",   min: 7,  max: 10, step: 2.5,  start: 17.5 },
+  "פרפר בישיבה במכונה":           { group: "חזה",          min: 10, max: 12, step: 2.5,  start: 20 },
+  "כפיפות בטן":                   { group: "בטן", sets: 2, min: 25, max: 27, step: 0 },
+  "אלכסונים – מרפקים לברכיים":    { group: "בטן", sets: 1, unit: "sec", min: null, max: null, step: 0, note: "יעד 90 שניות" },
+  "פלנק":                         { group: "בטן", sets: 1, unit: "sec", min: null, max: null, step: 0, note: "יעד 55 שניות" },
+  "אלכסונים עם משקל":             { group: "בטן", sets: 2, min: 30, max: 30, step: 1,    start: 8 }
+};
+
+const ILAY_PROGRAM = {
+  A: ["היפטרסט בסמית משין", "הרחקת ירכיים במכונה", "פשיטת מרפקים עם כבל בעמידה",
+      "פולדאון בסופינציה", "פשיטת מרפק מעל הראש"],
+  B: ["לחיצת רגליים", "פשיטות גב בכיסא רומי", "פולדאון רחב / משולש צר",
+      "פרפר הפוך", "פרפר בישיבה במכונה", "חתירה בהישענות במכונה"],
+  "בטן": ["כפיפות בטן", "אלכסונים – מרפקים לברכיים", "פלנק", "אלכסונים עם משקל"]
+};
+
+// תוכנית ברירת המחדל של כל משתמש
+const DEFAULTS = {
+  omri: { program: DEFAULT_PROGRAM, exercises: DEFAULT_EXERCISES },
+  wife: { program: ILAY_PROGRAM, exercises: ILAY_EXERCISES }
+};
+
+// למי יש אימון גמיש: 🔄 החלפה, ➖ הסרה ו-➕ הוספה של תרגילים לאותו יום
+const FLEX_USERS = ["wife"];
+
+function copy(obj) {
+  return JSON.parse(JSON.stringify(obj));
+}
+
 // ===== 4. שמירה וטעינה מהזיכרון של הדפדפן =====
 function loadData() {
   return JSON.parse(localStorage.getItem("fitness_" + USER)) || { logs: {} };
@@ -58,13 +100,13 @@ function saveData(data) {
 function getProgram() {
   const data = loadData();
   if (data.program) return data.program;
-  return USER === "omri" ? JSON.parse(JSON.stringify(DEFAULT_PROGRAM)) : {};
+  return DEFAULTS[USER] ? copy(DEFAULTS[USER].program) : {};
 }
 
 function getExercises() {
   const data = loadData();
   if (data.exercises) return data.exercises;
-  return USER === "omri" ? JSON.parse(JSON.stringify(DEFAULT_EXERCISES)) : {};
+  return DEFAULTS[USER] ? copy(DEFAULTS[USER].exercises) : {};
 }
 
 function saveProgram(program, exList) {
@@ -95,24 +137,35 @@ function getTodayLog(name) {
 }
 
 // ===== 5. היעד לאימון של היום =====
+function setsOf(ex) {
+  return ex.sets || 3;
+}
+
+function unitOf(ex) {
+  return ex.unit === "sec" ? "שניות" : "חזרות";
+}
+
 // מחשב כמה לעשות היום לפי הפעם הקודמת
 function nextTarget(ex, last) {
   if (!last) return null;
-  const best = Math.max(...last.reps);
+  const add = ex.unit === "sec" ? 5 : 1;   // בשניות מוסיפים 5, בחזרות 1
+  const lastReps = [];
+  for (let s = 0; s < setsOf(ex); s++) lastReps.push(last.reps[s] || 0);
+  const best = Math.max(...lastReps);
 
   // הגעת למקסימום בכל הסטים - עולים במשקל וחוזרים למינימום
-  if (ex.max && last.reps.every(r => r >= ex.max)) {
-    return { weight: last.weight + ex.step, reps: [0, 1, 2].map(() => ex.min || "מקס׳"), up: true };
+  if (ex.max && lastReps.every(r => r >= ex.max)) {
+    return { weight: last.weight + ex.step, reps: lastReps.map(() => ex.min || "מקס׳"), up: ex.step > 0 };
   }
   // היה קשה מאוד - חוזרים על אותו דבר
   if (last.difficulty >= 10) {
-    return { weight: last.weight, reps: last.reps.map(r => r || best), same: true };
+    return { weight: last.weight, reps: lastReps.map(r => r || best), same: true };
   }
-  // מוסיפים חזרה אחת לכל סט (עד המקסימום)
+  // מוסיפים לכל סט (עד המקסימום)
   return {
     weight: last.weight,
-    reps: last.reps.map(r => {
-      const next = (r || best) + 1;
+    reps: lastReps.map(r => {
+      const next = (r || best) + add;
       return ex.max ? Math.min(next, ex.max) : next;
     })
   };
@@ -120,66 +173,224 @@ function nextTarget(ex, last) {
 
 function recommendation(ex, last) {
   if (!last) {
-    if (ex.min) return "🎯 פעם ראשונה: התחל ב-" + ex.min + " חזרות בכל סט";
-    return "🎯 פעם ראשונה: כמה שיותר חזרות בכל סט";
+    if (ex.min) return "🎯 פעם ראשונה: התחל ב-" + ex.min + " " + unitOf(ex) + " בכל סט";
+    return "🎯 פעם ראשונה: כמה שיותר " + unitOf(ex) + " בכל סט";
   }
   const t = nextTarget(ex, last);
   const w = t.weight > 0 ? t.weight + " ק״ג × " : "";
+  const u = ex.unit === "sec" ? " שנ׳" : "";
 
-  let text = "📋 פעם קודמת (" + last.date + "): " + logText(last) +
+  let text = "📋 פעם קודמת (" + last.date + "): " + logText(last) + u +
              (last.difficulty ? " · קושי " + last.difficulty : "");
-  text += "<br><b>🎯 היום: " + w + t.reps.join(" / ") + "</b>";
+  text += "<br><b>🎯 היום: " + w + t.reps.join(" / ") + u + "</b>";
   if (t.up) text += " 🔥 עולים במשקל!";
   if (t.same) text += " (היה קשה – חוזרים על אותו דבר)";
   return text;
 }
 
 function targetText(ex) {
-  if (!ex.max) return "3 סטים × מקסימום חזרות";
-  if (!ex.min) return "3 סטים × מקסימום (יעד " + ex.max + ")";
-  return "3 סטים × " + ex.min + "–" + ex.max + " חזרות";
+  const sets = setsOf(ex) === 1 ? "סט אחד" : setsOf(ex) + " סטים";
+  let t;
+  if (!ex.max) t = sets + " × מקסימום " + unitOf(ex);
+  else if (!ex.min) t = sets + " × מקסימום (יעד " + ex.max + ")";
+  else if (ex.min === ex.max) t = sets + " × " + ex.max + " " + unitOf(ex);
+  else t = sets + " × " + ex.min + "–" + ex.max + " " + unitOf(ex);
+  return t + (ex.note ? " · " + ex.note : "");
 }
 
 function suggestedWeight(ex, last) {
-  if (!last) return "";
+  if (!last) return ex.start || "";
   return nextTarget(ex, last).weight;
 }
 
 // ===== 6. הצגת התרגילים של אימון =====
+// האימון של היום: אם שינית משהו היום (החלפה/הסרה/הוספה) - הרשימה ששונתה,
+// אחרת - התוכנית הרגילה. כל פריט: name = מה שעושים, orig = מה שהיה בתוכנית
+function getTodayList(letter) {
+  const data = loadData();
+  const s = data.session;
+  if (s && s.date === todayHe() && s.lists && s.lists[letter]) return s.lists[letter];
+  return (getProgram()[letter] || []).map(n => ({ name: n, orig: n }));
+}
+
+// שמירת השינויים של היום (מחר האימון חוזר לתוכנית הרגילה)
+function saveTodayList(letter, list) {
+  const data = loadData();
+  if (!data.session || data.session.date !== todayHe()) data.session = { date: todayHe(), lists: {} };
+  data.session.lists[letter] = list;
+  saveData(data);
+  renderWorkout(letter);
+}
+
+function isTodayChanged(letter) {
+  const data = loadData();
+  const s = data.session;
+  return !!(s && s.date === todayHe() && s.lists && s.lists[letter]);
+}
+
+// איזה תרגיל עושים בפועל במקום הזה
+function slotName(letter, i) {
+  return getTodayList(letter)[i].name;
+}
+
+// ההגדרות של התרגיל. בהחלפה - מספר הסטים נשאר של התרגיל המקורי (שומר על הנפח)
+function slotSettings(letter, i) {
+  const exList = getExercises();
+  const item = getTodayList(letter)[i];
+  const original = exList[item.orig] || {};
+  const actual = exList[item.name] || { min: null, max: null, step: 2 };
+  return Object.assign({}, actual, { sets: setsOf(original) });
+}
+
+// 🔄 חלופות: אותה קבוצת שרירים, מהאימונים האחרים, ושעוד לא נמצאות באימון של היום
+function swapOptions(letter, i) {
+  const program = getProgram();
+  const exList = getExercises();
+  const list = getTodayList(letter);
+  const group = (exList[list[i].orig] || {}).group;
+  if (!group) return [];
+
+  const used = list.map(x => x.name);
+  const options = [];
+  Object.keys(program).forEach(k => {
+    if (k === letter) return;
+    program[k].forEach(n => {
+      const sameGroup = (exList[n] || {}).group === group;
+      if (sameGroup && !used.includes(n) && !options.includes(n)) options.push(n);
+    });
+  });
+  return options;
+}
+
+function toggleSwapList(i) {
+  document.getElementById("swap" + i).classList.toggle("show");
+}
+
+// בחירת חלופה (index = -1 חוזר לתרגיל המקורי)
+function pickSwap(letter, i, index) {
+  const list = getTodayList(letter);
+  list[i].name = index < 0 ? list[i].orig : swapOptions(letter, i)[index];
+  saveTodayList(letter, list);
+}
+
+// ➖ הסרת תרגיל מהאימון של היום
+function removeFromToday(letter, i) {
+  const list = getTodayList(letter);
+  if (!confirm("להסיר את " + list[i].name + " מהאימון של היום?")) return;
+  list.splice(i, 1);
+  saveTodayList(letter, list);
+}
+
+// ➕ הוספת תרגיל מהמאגר שלה לאימון של היום
+function addToToday(letter) {
+  const name = document.getElementById("addExSelect").value;
+  if (!name) return;
+  const list = getTodayList(letter);
+  list.push({ name: name, orig: name });
+  saveTodayList(letter, list);
+}
+
+// ↩️ חזרה לאימון הרגיל
+function resetToday(letter) {
+  const data = loadData();
+  if (data.session && data.session.lists) delete data.session.lists[letter];
+  saveData(data);
+  renderWorkout(letter);
+}
+
 function renderWorkout(letter) {
   const list = document.getElementById("exerciseList");
   list.innerHTML = "";
+  const flex = FLEX_USERS.includes(USER);
+  const today = getTodayList(letter);
 
-  const program = getProgram();
-  const exList = getExercises();
+  // סיכום הנפח של היום
+  let totalSets = 0;
+  today.forEach((x, i) => totalSets += setsOf(slotSettings(letter, i)));
+  const planned = (getProgram()[letter] || []).reduce((sum, n) => sum + setsOf(getExercises()[n] || {}), 0);
+  const summary = document.createElement("div");
+  summary.className = "result-box volume-box";
+  summary.innerHTML = `📊 היום: <b>${today.length} תרגילים · ${totalSets} סטים</b>` +
+    (totalSets !== planned ? ` <span class="target">(בתוכנית: ${planned})</span>` : "");
+  list.appendChild(summary);
 
-  (program[letter] || []).forEach((name, i) => {
-    const ex = exList[name] || { min: null, max: null, step: 2 };
+  today.forEach((item, i) => {
+    const name = item.name;
+    const ex = slotSettings(letter, i);
     const last = getLastLog(name);
-
-    const today = getTodayLog(name);       // אם כבר שמרת היום - הנתונים חוזרים לשדות
+    const todayLog = getTodayLog(name);    // אם כבר שמרת היום - הנתונים חוזרים לשדות
     const t = nextTarget(ex, last);         // היעד להיום
-    const repValue = s => today ? (today.reps[s] || "") : "";
-    const repHint = s => (t && typeof t.reps[s] === "number") ? "יעד " + t.reps[s] : "סט " + (s + 1);
+    const swapped = name !== item.orig;
+
+    // 🔄 רשימת החלופות
+    let swapHtml = "";
+    let buttons = "";
+    if (flex) {
+      const options = swapOptions(letter, i);
+      let chips = options.map((o, k) =>
+        `<button class="chip" onclick="pickSwap('${letter}', ${i}, ${k})">${o}</button>`).join("");
+      if (swapped) chips += `<button class="chip" onclick="pickSwap('${letter}', ${i}, -1)">↩️ חזרה ל${item.orig}</button>`;
+      if (!chips) chips = "<p class='target'>אין חלופה מאותה קבוצת שרירים באימון השני. אפשר להסיר ➖ ולהוסיף תרגיל אחר למטה</p>";
+      swapHtml = `<div class="swap-list chips" id="swap${i}">${chips}</div>`;
+      buttons = `<span>
+        <button class="swap-btn" onclick="toggleSwapList(${i})">🔄 החלף</button>
+        <button class="swap-btn" onclick="removeFromToday('${letter}', ${i})">➖</button>
+      </span>`;
+    }
+
+    // שדות הסטים - לפי מספר הסטים של התרגיל
+    let inputs = `<input type="number" id="w${i}" placeholder="ק״ג" value="${todayLog ? todayLog.weight : suggestedWeight(ex, last)}">`;
+    for (let s = 0; s < setsOf(ex); s++) {
+      const value = todayLog ? (todayLog.reps[s] || "") : "";
+      const hint = (t && typeof t.reps[s] === "number") ? "יעד " + t.reps[s] : "סט " + (s + 1);
+      inputs += `<input type="number" id="r${i}-${s}" placeholder="${hint}" value="${value}">`;
+    }
 
     const card = document.createElement("div");
     card.className = "exercise-card";
     card.innerHTML = `
-      <h3>${i + 1}. ${name}</h3>
+      <div class="ex-head">
+        <h3>${i + 1}. ${name}</h3>
+        ${buttons}
+      </div>
+      ${swapped ? `<p class="target">🔄 במקום: ${item.orig}</p>` : ""}
+      ${swapHtml}
       <p class="target">${targetText(ex)}</p>
       <p class="tip">${recommendation(ex, last)}</p>
-      <div class="sets">
-        <input type="number" id="w${i}" placeholder="ק״ג" value="${today ? today.weight : suggestedWeight(ex, last)}">
-        <input type="number" id="r${i}-0" placeholder="${repHint(0)}" value="${repValue(0)}">
-        <input type="number" id="r${i}-1" placeholder="${repHint(1)}" value="${repValue(1)}">
-        <input type="number" id="r${i}-2" placeholder="${repHint(2)}" value="${repValue(2)}">
-      </div>
-      <input type="number" id="d${i}" min="1" max="10" placeholder="רמת קושי 1-10" value="${today && today.difficulty ? today.difficulty : ""}">
+      <div class="sets">${inputs}</div>
+      <input type="number" id="d${i}" min="1" max="10" placeholder="רמת קושי 1-10" value="${todayLog && todayLog.difficulty ? todayLog.difficulty : ""}">
       <button onclick="saveExercise('${letter}', ${i})">שמור תרגיל</button>
       <p class="msg" id="m${i}"></p>
     `;
     list.appendChild(card);
   });
+
+  // ➕ הוספת תרגיל מהמאגר שלה (מסודר לפי קבוצות שרירים)
+  if (flex) {
+    const exList = getExercises();
+    const used = today.map(x => x.name);
+    const byGroup = {};
+    Object.keys(exList).filter(n => !used.includes(n)).forEach(n => {
+      const g = exList[n].group || "אחר";
+      if (!byGroup[g]) byGroup[g] = [];
+      byGroup[g].push(n);
+    });
+    let options = "<option value=''>בחר תרגיל...</option>";
+    Object.keys(byGroup).forEach(g => {
+      options += `<optgroup label="${g}">` + byGroup[g].map(n => `<option>${n}</option>`).join("") + "</optgroup>";
+    });
+
+    const addBox = document.createElement("div");
+    addBox.className = "exercise-card";
+    addBox.innerHTML = `
+      <h3>➕ הוספת תרגיל לאימון של היום</h3>
+      <select id="addExSelect">${options}</select>
+      <button onclick="addToToday('${letter}')">הוסף</button>
+      ${isTodayChanged(letter) ? `<button class="danger" onclick="resetToday('${letter}')">↩️ חזרה לאימון ${letter} הרגיל</button>` : ""}
+      <p class="target">השינויים הם רק להיום. בפעם הבאה האימון חוזר לתוכנית.</p>
+    `;
+    list.appendChild(addBox);
+  }
 }
 
 // ===== 7. שמירת תרגיל =====
@@ -222,14 +433,18 @@ function cleanDuplicates() {
 }
 
 function saveExercise(letter, i) {
-  const name = getProgram()[letter][i];
+  const name = slotName(letter, i);
+  const ex = slotSettings(letter, i);
   const weight = Number(document.getElementById("w" + i).value) || 0;
-  const reps = [0, 1, 2].map(s => Number(document.getElementById("r" + i + "-" + s).value) || 0);
+  const reps = [];
+  for (let s = 0; s < setsOf(ex); s++) {
+    reps.push(Number(document.getElementById("r" + i + "-" + s).value) || 0);
+  }
   const difficulty = Number(document.getElementById("d" + i).value) || 0;
   const msg = document.getElementById("m" + i);
 
   if (reps.every(r => r === 0)) {
-    msg.textContent = "⚠️ צריך למלא חזרות לפחות בסט אחד";
+    msg.textContent = "⚠️ צריך למלא לפחות סט אחד";
     return;
   }
 
@@ -1757,7 +1972,11 @@ function renderEditor() {
   let options = "";
   Object.keys(exList).forEach(n => options += `<option value="${n}">`);
 
-  const reset = USER === "omri"
+  // קבוצות השרירים הקיימות (להשלמה אוטומטית)
+  let groups = "";
+  [...new Set(Object.values(exList).map(e => e.group).filter(g => g))].forEach(g => groups += `<option value="${g}">`);
+
+  const reset = DEFAULTS[USER]
     ? `<button class="danger" onclick="resetProgram()">↩️ חזרה לתוכנית המקורית</button>`
     : "";
 
@@ -1775,10 +1994,18 @@ function renderEditor() {
     <input type="text" id="newExName" list="exNames" placeholder="שם התרגיל">
     <datalist id="exNames">${options}</datalist>
     <div class="sets">
-      <input type="number" id="newExMin" placeholder="מינ׳ חזרות">
-      <input type="number" id="newExMax" placeholder="מקס׳ חזרות">
-      <input type="number" id="newExStep" step="0.5" placeholder="עלייה בק״ג">
+      <input type="number" id="newExSets" placeholder="סטים (3)">
+      <input type="number" id="newExMin" placeholder="מינימום">
+      <input type="number" id="newExMax" placeholder="מקסימום">
+      <input type="number" id="newExStep" step="0.25" placeholder="עלייה בק״ג">
     </div>
+    <select id="newExUnit">
+      <option value="">נמדד בחזרות</option>
+      <option value="sec">נמדד בשניות</option>
+    </select>
+    <input type="text" id="newExGroup" list="exGroups" placeholder="קבוצת שרירים (בשביל 🔄 החלפה)">
+    <datalist id="exGroups">${groups}</datalist>
+    <input type="text" id="newExNote" placeholder="הערה (לא חובה), למשל: משקל לכל צד">
     <p class="target">מינימום ריק = "כמה שיותר עד היעד". שניהם ריקים = מקסימום חזרות בלי יעד.<br>
     בחירת תרגיל קיים מהרשימה ממלאת את הנתונים שלו, ואפשר לשנות אותם.</p>
     <button onclick="addExercise()">שמור תרגיל באימון</button>
@@ -1792,9 +2019,13 @@ function renderEditor() {
   document.getElementById("newExName").addEventListener("input", () => {
     const ex = exList[document.getElementById("newExName").value.trim()];
     if (!ex) return;
+    document.getElementById("newExSets").value = ex.sets || "";
     document.getElementById("newExMin").value = ex.min || "";
     document.getElementById("newExMax").value = ex.max || "";
     document.getElementById("newExStep").value = ex.step || "";
+    document.getElementById("newExUnit").value = ex.unit || "";
+    document.getElementById("newExGroup").value = ex.group || "";
+    document.getElementById("newExNote").value = ex.note || "";
   });
 }
 
@@ -1849,7 +2080,11 @@ function addExercise() {
   const name = document.getElementById("newExName").value.trim();
   const min = Number(document.getElementById("newExMin").value) || null;
   const max = Number(document.getElementById("newExMax").value) || null;
-  const step = Number(document.getElementById("newExStep").value) || 2;
+  const step = Number(document.getElementById("newExStep").value) || 0;
+  const sets = Number(document.getElementById("newExSets").value) || 3;
+  const unit = document.getElementById("newExUnit").value || null;
+  const group = document.getElementById("newExGroup").value.trim() || null;
+  const note = document.getElementById("newExNote").value.trim() || null;
   const msg = document.getElementById("editMsg");
 
   if (!name) {
@@ -1863,7 +2098,10 @@ function addExercise() {
 
   const program = getProgram();
   const exList = getExercises();
-  exList[name] = { min: min, max: max, step: step };
+  // שומרים על נתונים קיימים (כמו משקל התחלתי) ומעדכנים את מה ששונה
+  exList[name] = Object.assign({}, exList[name], {
+    min: min, max: max, step: step, sets: sets, unit: unit, group: group, note: note
+  });
   if (!program[editWorkout].includes(name)) program[editWorkout].push(name);
   saveProgram(program, exList);
   renderEditor();
